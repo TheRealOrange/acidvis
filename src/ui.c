@@ -168,7 +168,7 @@ void ui_render_point_markers(AppState *state) {
   uint8_t r, g, b;
 
   // draw coefficients or base_coeffs depending on mode
-  if (state->view_mode == VIEW_MODE_POINT_CLOUD && state->base_coeffs) {
+  if (state->view_mode == VIEW_MODE_POINT_CLOUD && state->base_coeffs && state->show_coeffs) {
     // cloud mode: draw base coefficients (the N draggable points)
     for (size_t i = 0; i < state->num_base_coeffs && i < 26; i++) {
       float cx = (float)creall(state->base_coeffs[i]);
@@ -199,38 +199,36 @@ void ui_render_point_markers(AppState *state) {
       SDL_SetRenderDrawColor(state->ren, 0, 0, 0, 255);
       SDL_RenderDebugText(state->ren, sx - 4, sy - 4, label);
     }
-  } else if (state->poly && state->poly->coeffs_valid) {
+  } else if (state->poly && state->poly->coeffs_valid && state->show_coeffs) {
     // roots mode: draw polynomial coefficients
-    if (state->show_coeffs) {
-      for (size_t i = 0; i <= state->poly->degree && i < 26; i++) {
-        float cx = (float)creall(state->poly->coeffs[i]);
-        float cy = (float)cimagl(state->poly->coeffs[i]);
-        float sx, sy;
-        complex_to_screen(state, cx, cy, &sx, &sy);
+    for (size_t i = 0; i <= state->poly->degree && i < 26; i++) {
+      float cx = (float)creall(state->poly->coeffs[i]);
+      float cy = (float)cimagl(state->poly->coeffs[i]);
+      float sx, sy;
+      complex_to_screen(state, cx, cy, &sx, &sy);
 
-        bool is_hover = (state->hover_mode == DRAG_COEFF && state->hover_index == (int)i);
-        bool is_drag = (state->drag_mode == DRAG_COEFF && state->drag_index == (int)i);
+      bool is_hover = (state->hover_mode == DRAG_COEFF && state->hover_index == (int)i);
+      bool is_drag = (state->drag_mode == DRAG_COEFF && state->drag_index == (int)i);
 
-        hue = (float)i / (float)(state->poly->degree + 1);
-        if (is_hover || is_drag) {
-          hsl_to_rgb_cpu(hue, 0.8f, 0.7f, &r, &g, &b);
-        } else {
-          hsl_to_rgb_cpu(hue, 0.8f, 0.5f, &r, &g, &b);
-        }
-        SDL_SetRenderDrawColor(state->ren, r, g, b, 255);
-
-        float rad = is_hover || is_drag ? POINT_RADIUS + 2 : POINT_RADIUS;
-        ui_draw_circle(state->ren, sx, sy, rad);
-
-        // outline
-        SDL_SetRenderDrawColor(state->ren, 50, 50, 50, 255);
-        ui_draw_circle_outline(state->ren, sx, sy, rad, 24);
-
-        // draw label (a-z)
-        char label[2] = { 'a' + (char)i, '\0' };
-        SDL_SetRenderDrawColor(state->ren, 0, 0, 0, 255);
-        SDL_RenderDebugText(state->ren, sx - 4, sy - 4, label);
+      hue = (float)i / (float)(state->poly->degree + 1);
+      if (is_hover || is_drag) {
+        hsl_to_rgb_cpu(hue, 0.8f, 0.7f, &r, &g, &b);
+      } else {
+        hsl_to_rgb_cpu(hue, 0.8f, 0.5f, &r, &g, &b);
       }
+      SDL_SetRenderDrawColor(state->ren, r, g, b, 255);
+
+      float rad = is_hover || is_drag ? POINT_RADIUS + 2 : POINT_RADIUS;
+      ui_draw_circle(state->ren, sx, sy, rad);
+
+      // outline
+      SDL_SetRenderDrawColor(state->ren, 50, 50, 50, 255);
+      ui_draw_circle_outline(state->ren, sx, sy, rad, 24);
+
+      // draw label (a-z)
+      char label[2] = { 'a' + (char)i, '\0' };
+      SDL_SetRenderDrawColor(state->ren, 0, 0, 0, 255);
+      SDL_RenderDebugText(state->ren, sx - 4, sy - 4, label);
     }
   }
 
