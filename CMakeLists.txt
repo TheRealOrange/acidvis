@@ -198,14 +198,32 @@ if(LAPACK_FOUND)
 endif()
 
 # sources
-file(GLOB_RECURSE SOURCES CONFIGURE_DEPENDS "${CMAKE_CURRENT_SOURCE_DIR}/src/*.c")
-
-set(POLY_LIB_SOURCES
+set(CORE_SOURCES
         src/polynomial.c
         src/polysolve.c
         src/companion.c
         src/util.c
 )
+
+set(RENDER_SOURCES
+        src/render.c
+        src/render_cpu.c
+        src/render_gpu.c
+)
+
+set(APP_SOURCES
+        src/main.c
+        src/app.c
+        src/input.c
+        src/ui.c
+        src/cloud.c
+        src/animation.c
+)
+
+set(SOURCES ${CORE_SOURCES} ${RENDER_SOURCES} ${APP_SOURCES})
+
+# poly lib sources for tests (excludes rendering and app)
+set(POLY_LIB_SOURCES ${CORE_SOURCES})
 
 # main executable
 add_executable(polynomial ${SOURCES})
