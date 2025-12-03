@@ -23,7 +23,9 @@ if(MSVC)
 
     # favor speed, enable intrinsics
     add_compile_options("$<$<CONFIG:Release>:/Oi>" "$<$<CONFIG:Release>:/Ot>")
-
+elseif(MINGW)
+    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+    message(STATUS "MinGW: static linking enabled")
 elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
     # enable linker garbage collection
     set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG -ffunction-sections -fdata-sections")
@@ -91,7 +93,16 @@ if(APPLE)
 endif()
 
 find_package(OpenMP)
-message(STATUS "OpenMP: ${OpenMP_C_FOUND}")
+if(OpenMP_C_FOUND)
+    message(STATUS "OpenMP: found")
+    if(MINGW)
+        # Link OpenMP statically
+        set(OpenMP_C_FLAGS "-fopenmp")
+        set(OpenMP_LIBS "-Wl,-Bstatic -lgomp -Wl,-Bdynamic")
+    endif()
+else()
+    message(STATUS "OpenMP: not found")
+endif()
 
 # LAPACK support
 if(APPLE)
@@ -188,10 +199,25 @@ FetchContent_Declare(cJSON
 )
 FetchContent_MakeAvailable(cJSON)
 
+# Target 'cjson' and suppress the float-conversion warning
+if (CMAKE_C_COMPILER_ID MATCHES "(GNU|Clang)")
+    target_compile_options(cjson PRIVATE "-Wno-float-conversion")
+endif()
+
+# same for MSVC
+if (MSVC)
+    target_compile_options(cjson PRIVATE "/wd4244")
+endif()
+
 # optional libs used by polynomial code
 set(POLY_LIBS "")
 if(OpenMP_C_FOUND)
-    list(APPEND POLY_LIBS OpenMP::OpenMP_C)
+    if(MINGW)
+        # Static OpenMP for MinGW
+        list(APPEND POLY_LIBS "-Wl,-Bstatic" gomp "-Wl,-Bdynamic" pthread)
+    else()
+        list(APPEND POLY_LIBS OpenMP::OpenMP_C)
+    endif()
 endif()
 if(LAPACK_FOUND)
     list(APPEND POLY_LIBS ${LAPACK_LIBRARIES})
