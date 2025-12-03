@@ -19,37 +19,37 @@
 
 #define REL_EPSILON 1e-20
 
-static bool complex_approx_equal(complex long double a, complex long double b) {
-  long double diff = cabsl(a - b);
-  long double mag = fmaxl(cabsl(a), cabsl(b));
+static bool complex_approx_equal(cxldouble a, cxldouble b) {
+  long double diff = cxabsl(cxsubl(a, b));
+  long double mag = fmaxl(cxabsl(a), cxabsl(b));
   return diff < (LDBL_EPSILON + REL_EPSILON * mag);
 }
 
 // need consistent ordering, so compare by real part first
 // and then compare by imaginary part
 static int complex_compare(const void *a, const void *b) {
-  complex long double ca = *(const complex long double *)a;
-  complex long double cb = *(const complex long double *)b;
+  cxldouble ca = *(const cxldouble *)a;
+  cxldouble cb = *(const cxldouble *)b;
 
-  long double real_diff = creall(ca) - creall(cb);
+  long double real_diff = cxreall(ca) - cxreall(cb);
   if (fabsl(real_diff) > 0)
     return (real_diff > 0) - (real_diff < 0);
 
-  long double imag_diff = cimagl(ca) - cimagl(cb);
+  long double imag_diff = cximagl(ca) - cximagl(cb);
   if (fabsl(imag_diff) > 0)
     return (imag_diff > 0) - (imag_diff < 0);
 
   return 0;
 }
 
-static void expand_from_roots(complex long double *coeffs,
-                              const complex long double *roots,
+static void expand_from_roots(cxldouble *coeffs,
+                              const cxldouble *roots,
                               const size_t *mults,
                               size_t distinct_roots,
                               size_t coeffs_size) {
   size_t curr_deg = 0;
-  for (size_t i = 0; i < coeffs_size; i++) coeffs[i] = 0;
-  coeffs[0] = 1.0;
+  for (size_t i = 0; i < coeffs_size; i++) coeffs[i] = CXL(0.0, 0.0);
+  coeffs[0] = CXL(1.0, 0.0);
   for (size_t i = 0; i < distinct_roots; i++) {
     // multipy the current expanded form by
     // (x - c) for each root
@@ -64,29 +64,29 @@ static void expand_from_roots(complex long double *coeffs,
       for (size_t j = curr_deg; j > 0; j--) {
         // for each coefficient, subtract the current one
         // multiplied by the root (x - c) -> k(N) * (-c) + k(N-1)
-        coeffs[j] = -roots[i] * coeffs[j] + coeffs[j-1];
+        coeffs[j] = cxaddl(cxmull(cxnegl(roots[i]), coeffs[j]), coeffs[j-1]);
       }
 
       // last coefficient is just multiplied by neg of the root
       // k(0) * (-c)
-      coeffs[0] *= -roots[i];
+      coeffs[0] = cxmull(coeffs[0], cxnegl(roots[i]));
     }
   }
 }
 
 polynomial_t *polynomial_new(size_t degree) {
   polynomial_t *poly = malloc(sizeof(polynomial_t));
-  if (!poly) return nullptr;
+  if (!poly) return NULL;
 
   poly->degree = degree;
-  poly->coeffs = calloc(degree+1, sizeof(complex long double));
-  poly->roots = calloc(degree, sizeof(complex long double));
+  poly->coeffs = calloc(degree+1, sizeof(cxldouble));
+  poly->roots = calloc(degree, sizeof(cxldouble));
   poly->multiplicity = calloc(degree, sizeof(size_t));
 
   if (!poly->coeffs || !poly->roots || !poly->multiplicity) {
     // falied to allocate somehow
     polynomial_free(poly);
-    return nullptr;
+    return NULL;
   }
 
   // coefficients not set yet
@@ -99,31 +99,31 @@ polynomial_t *polynomial_new(size_t degree) {
   return poly;
 }
 
-polynomial_t *polynomial_from_roots(complex long double *roots, size_t num_roots, bool dedup) {
-  if (!roots || !num_roots) return nullptr;
+polynomial_t *polynomial_from_roots(cxldouble *roots, size_t num_roots, bool dedup) {
+  if (!roots || !num_roots) return NULL;
   size_t num_dist_roots = 0;
   // find the number of distinct roots
-  complex long double *distinct_roots;
+  cxldouble *distinct_roots;
   size_t *multiplicity;
-  distinct_roots = calloc(num_roots, sizeof(complex long double));
+  distinct_roots = calloc(num_roots, sizeof(cxldouble));
   multiplicity = calloc(num_roots, sizeof(size_t));
   if (!distinct_roots || !multiplicity) {
     if (distinct_roots) free(distinct_roots);
     if (multiplicity) free (multiplicity);
-    return nullptr;
+    return NULL;
   }
 
   if (dedup) {
     // assuming that repeated roots show up in the roots more than once
     // so we copy the roots and sort them
-    complex long double *sorted_roots;
-    sorted_roots = calloc(num_roots, sizeof(complex long double));
-    if (!sorted_roots) return nullptr;
+    cxldouble *sorted_roots;
+    sorted_roots = calloc(num_roots, sizeof(cxldouble));
+    if (!sorted_roots) return NULL;
 
-    memcpy(sorted_roots, roots, num_roots * sizeof(complex long double));
-    qsort(sorted_roots, num_roots, sizeof(complex long double), complex_compare);
+    memcpy(sorted_roots, roots, num_roots * sizeof(cxldouble));
+    qsort(sorted_roots, num_roots, sizeof(cxldouble), complex_compare);
 
-    complex long double curr_root = 0;
+    cxldouble curr_root = CXL(0.0, 0.0);
     for (size_t i = 0; i < num_roots; i++) {
       // find repeated roots
       if (num_dist_roots == 0 || !complex_approx_equal(sorted_roots[i], curr_root)) {
@@ -156,16 +156,16 @@ polynomial_t *polynomial_from_roots(complex long double *roots, size_t num_roots
   return poly;
 }
 
-polynomial_t *polynomial_from_dis_roots(complex long double *distinct_roots, size_t *mult, size_t num_dist_roots) {
-  if (!distinct_roots || num_dist_roots < 1) return nullptr;
+polynomial_t *polynomial_from_dis_roots(cxldouble *distinct_roots, size_t *mult, size_t num_dist_roots) {
+  if (!distinct_roots || num_dist_roots < 1) return NULL;
 
   // calculate degree from the number of roots and multiplicity
   size_t degree = 0;
   for (size_t i = 0; i < num_dist_roots; i++) degree += mult[i];
   polynomial_t *poly = polynomial_new(degree);
-  if (!poly) return nullptr;
+  if (!poly) return NULL;
 
-  memcpy(poly->roots, distinct_roots, num_dist_roots * sizeof(complex long double));
+  memcpy(poly->roots, distinct_roots, num_dist_roots * sizeof(cxldouble));
   memcpy(poly->multiplicity, mult, num_dist_roots * sizeof(size_t));
   poly->num_distinct_roots = num_dist_roots;
   poly->roots_valid = true;
@@ -178,14 +178,14 @@ polynomial_t *polynomial_from_dis_roots(complex long double *distinct_roots, siz
   return poly;
 }
 
-polynomial_t *polynomial_from_coeffs(complex long double *coeffs, size_t num_coeffs) {
-  if (!coeffs || num_coeffs < 1) return nullptr;
+polynomial_t *polynomial_from_coeffs(cxldouble *coeffs, size_t num_coeffs) {
+  if (!coeffs || num_coeffs < 1) return NULL;
 
   // assuming number of coefficients-1 is the degree
   polynomial_t *poly = polynomial_new(num_coeffs-1);
-  if (!poly) return nullptr;
+  if (!poly) return NULL;
 
-  memcpy(poly->coeffs, coeffs, num_coeffs * sizeof(complex long double));
+  memcpy(poly->coeffs, coeffs, num_coeffs * sizeof(cxldouble));
   poly->coeffs_valid = true;
 
   return poly;
@@ -201,13 +201,13 @@ void polynomial_free(polynomial_t *poly) {
 }
 
 polynomial_t *polynomial_copy(polynomial_t *poly) {
-  if (!poly) return nullptr;
+  if (!poly) return NULL;
 
   polynomial_t *copy = polynomial_new(poly->degree);
-  if (!copy) return nullptr;
+  if (!copy) return NULL;
 
-  memcpy(copy->coeffs, poly->coeffs, (poly->degree+1) * sizeof(complex long double));
-  memcpy(copy->roots, poly->roots, poly->num_distinct_roots * sizeof(complex long double));
+  memcpy(copy->coeffs, poly->coeffs, (poly->degree+1) * sizeof(cxldouble));
+  memcpy(copy->roots, poly->roots, poly->num_distinct_roots * sizeof(cxldouble));
   memcpy(copy->multiplicity, poly->multiplicity, poly->num_distinct_roots * sizeof(size_t));
 
   copy->num_distinct_roots = poly->num_distinct_roots;
@@ -217,13 +217,13 @@ polynomial_t *polynomial_copy(polynomial_t *poly) {
 }
 
 // horner's method for evaluating the polynomial
-complex long double polynomial_eval(polynomial_t *poly, complex long double z) {
+cxldouble polynomial_eval(polynomial_t *poly, cxldouble z) {
   // b_N = a_N
   // coeff N=deg+1
-  complex long double b = poly->coeffs[poly->degree];
+  cxldouble b = poly->coeffs[poly->degree];
   for (size_t i = poly->degree; i > 0; i--) {
     // b_N-1 = a_N-1 + b_N * z
-    b = poly->coeffs[i-1] + b * z;
+    b = cxaddl(poly->coeffs[i-1], cxmull(b, z));
   }
   return b;
 }
@@ -232,7 +232,7 @@ complex long double polynomial_eval(polynomial_t *poly, complex long double z) {
 bool polynomial_find_roots(polynomial_t *poly) {
   if (!poly || !poly->coeffs_valid || poly->degree == 0) return false;
 
-  complex long double *roots = malloc(poly->degree * sizeof(complex long double));
+  cxldouble *roots = malloc(poly->degree * sizeof(cxldouble));
   if (!roots) return false;
 
   size_t num_roots;
@@ -243,14 +243,14 @@ bool polynomial_find_roots(polynomial_t *poly) {
     polynomial_t *temp = polynomial_from_roots(roots, num_roots, true);
     if (temp) {
       // copy deduplicated roots and multiplicities
-      memcpy(poly->roots, temp->roots, temp->num_distinct_roots * sizeof(complex long double));
+      memcpy(poly->roots, temp->roots, temp->num_distinct_roots * sizeof(cxldouble));
       memcpy(poly->multiplicity, temp->multiplicity, temp->num_distinct_roots * sizeof(size_t));
       poly->num_distinct_roots = temp->num_distinct_roots;
       poly->roots_valid = true;
       polynomial_free(temp);
     } else {
       // deduplication failed, copy raw roots with multiplicity 1
-      memcpy(poly->roots, roots, num_roots * sizeof(complex long double));
+      memcpy(poly->roots, roots, num_roots * sizeof(cxldouble));
       for (size_t i = 0; i < num_roots; i++) {
         poly->multiplicity[i] = 1;
       }
@@ -267,8 +267,8 @@ bool polynomial_find_roots(polynomial_t *poly) {
 // convert combination index to coefficient assignment
 // treats index as base-N number where each digit picks which base coeff to use
 static void index_to_combination(size_t index, size_t num_base_coeffs, size_t num_positions,
-                                  const complex long double *base_coeffs,
-                                  complex long double *out_coeffs) {
+                                  const cxldouble *base_coeffs,
+                                  cxldouble *out_coeffs) {
   for (size_t pos = 0; pos < num_positions; pos++) {
     size_t which_base = index % num_base_coeffs;
     out_coeffs[pos] = base_coeffs[which_base];
@@ -277,16 +277,15 @@ static void index_to_combination(size_t index, size_t num_base_coeffs, size_t nu
 }
 
 #ifdef HAVE_LAPACK
-// memory-aware batched LAPACK eigenvalue computation
-// processes polynomials in chunks to avoid OOM
-// delegates actual LAPACK calls to companion.c
+// batched LAPACK eigenvalue computation
+// processes polynomials in chunks
 static size_t process_batch_lapack(
-    const complex long double *base_coeffs,
+    const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
     size_t start_idx,
     size_t batch_size,
-    complex long double *roots_out,
+    cxldouble *roots_out,
     size_t *num_distinct_out,
     size_t skip) {
 
@@ -313,8 +312,8 @@ static size_t process_batch_lapack(
   }
 
   // allocate only for valid matrices
-  complex double *matrices = malloc(num_valid * n * n * sizeof(complex double));
-  complex double *eigenvalues = malloc(num_valid * n * sizeof(complex double));
+  cxdouble *matrices = malloc(num_valid * n * n * sizeof(cxdouble));
+  cxdouble *eigenvalues = malloc(num_valid * n * sizeof(cxdouble));
 
   if (!matrices || !eigenvalues) {
     free(matrices);
@@ -324,8 +323,9 @@ static size_t process_batch_lapack(
   }
 
   // build companion matrices in parallel (now safe - each thread has unique valid_i)
+  int batch_i;  // msvc openmp requires signed int declared outside
   #pragma omp parallel for schedule(static)
-  for (size_t batch_i = 0; batch_i < batch_size; batch_i++) {
+  for (batch_i = 0; batch_i < (int)batch_size; batch_i++) {
     size_t global_i = start_idx + batch_i;
 
     // skip if not divisible by skip value
@@ -335,29 +335,33 @@ static size_t process_batch_lapack(
 
     size_t valid_i = batch_to_valid[batch_i];
 
-    // build polynomial coefficients
-    complex long double coeffs[n + 1];
+    // build polynomial coefficients (heap allocation instead of VLA)
+    cxldouble *coeffs = malloc((n + 1) * sizeof(cxldouble));
+    if (!coeffs) continue;
+
     index_to_combination(global_i, num_base_coeffs, n + 1, base_coeffs, coeffs);
 
     // normalize to monic
-    complex long double lead = coeffs[n];
+    cxldouble lead = coeffs[n];
     for (size_t i = 0; i <= n; i++) {
-      coeffs[i] /= lead;
+      coeffs[i] = cxdivl(coeffs[i], lead);
     }
 
     // build companion matrix in column-major order at compacted position
-    complex double *matrix = matrices + (valid_i * n * n);
-    memset(matrix, 0, n * n * sizeof(complex double));
+    cxdouble *matrix = matrices + (valid_i * n * n);
+    memset(matrix, 0, n * n * sizeof(cxdouble));
 
     // subdiagonal: 1s
     for (size_t i = 1; i < n; i++) {
-      matrix[i + (i-1) * n] = 1.0;
+      matrix[i + (i-1) * n] = CX(1.0, 0.0);
     }
 
     // last column: -c_i (negated normalized coefficients)
     for (size_t i = 0; i < n; i++) {
-      matrix[i + (n-1) * n] = (complex double)(-coeffs[i]);
+      matrix[i + (n-1) * n] = cxl_to_cx(cxnegl(coeffs[i]));
     }
+
+    free(coeffs);
   }
 
   // compute eigenvalues only for valid matrices
@@ -377,11 +381,11 @@ static size_t process_batch_lapack(
     size_t valid_i = batch_to_valid[batch_i];
 
     // convert eigenvalues to long double
-    complex long double *roots = roots_out + (batch_i * n);
-    complex double *evals = eigenvalues + (valid_i * n);
+    cxldouble *roots = roots_out + (batch_i * n);
+    cxdouble *evals = eigenvalues + (valid_i * n);
 
     for (size_t j = 0; j < n; j++) {
-      roots[j] = (complex long double)evals[j];
+      roots[j] = cx_to_cxl(evals[j]);
     }
 
     num_distinct_out[batch_i] = n;
@@ -399,17 +403,17 @@ static size_t process_batch_lapack(
 
 // process single combination and find its roots
 static size_t process_single_combination(
-    const complex long double *base_coeffs,
+    const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
     size_t combination_index,
-    complex long double *roots_out,
+    cxldouble *roots_out,
     size_t max_roots,
     bool use_lapack) {
 
   size_t num_positions = poly_degree + 1;
 
-  complex long double *coeffs = malloc(num_positions * sizeof(complex long double));
+  cxldouble *coeffs = malloc(num_positions * sizeof(cxldouble));
   if (!coeffs) return 0;
 
   index_to_combination(combination_index, num_base_coeffs, num_positions, base_coeffs, coeffs);
@@ -435,7 +439,7 @@ static size_t process_single_combination(
     num_distinct = max_roots;
   }
 
-  memcpy(roots_out, work->roots, num_distinct * sizeof(complex long double));
+  memcpy(roots_out, work->roots, num_distinct * sizeof(cxldouble));
 
   polynomial_free(work);
   return num_distinct;
@@ -445,10 +449,10 @@ static size_t process_single_combination(
 // skip parameter: if > 1, only compute every skip-th combination
 // skipped combinations will have num_distinct[i] = 0 to maintain hue index
 static size_t polynomial_find_root_combinations_helper(
-    const complex long double *base_coeffs,
+    const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
-    complex long double **roots,
+    cxldouble **roots,
     size_t **num_distinct,
     size_t num_combinations,
     bool use_lapack,
@@ -471,8 +475,8 @@ static size_t polynomial_find_root_combinations_helper(
     size_t n = poly_degree;
 
     // estimate memory per polynomial:
-    // - companion matrix: n*n*sizeof(complex double) = n*n*16 bytes
-    // - eigenvalues: n*sizeof(complex double) = n*16 bytes
+    // - companion matrix: n*n*sizeof(cxdouble) = n*n*16 bytes
+    // - eigenvalues: n*sizeof(cxdouble) = n*16 bytes
     // - LAPACK workspace per thread: ~n*n*16 bytes
     size_t bytes_per_poly = n * n * 16 + n * 16;
 
@@ -493,7 +497,7 @@ static size_t polynomial_find_root_combinations_helper(
       }
 
       // get pointers to this chunk's output
-      complex long double *batch_roots = *roots + (start * poly_degree);
+      cxldouble *batch_roots = *roots + (start * poly_degree);
       size_t *batch_num_distinct = *num_distinct + start;
 
       size_t batch_total = process_batch_lapack(
@@ -511,10 +515,11 @@ static size_t polynomial_find_root_combinations_helper(
 
   // fallback, process one-by-one, for non-LAPACK or small batches
 #ifdef _OPENMP
+  int i;  // msvc openmp requires signed int declared outside
   #pragma omp parallel reduction(+:total_roots)
   {
     #pragma omp for schedule(dynamic, 64)
-    for (size_t i = 0; i < num_combinations; i++) {
+    for (i = 0; i < (int)num_combinations; i++) {
       // skip combinations if not divisible by skip value
       if (i % skip != 0) {
         // set num_distinct to 0 to maintain hue index
@@ -522,7 +527,7 @@ static size_t polynomial_find_root_combinations_helper(
         continue;
       }
 
-      complex long double *my_roots = *roots + (i * poly_degree);
+      cxldouble *my_roots = *roots + (i * poly_degree);
 
       size_t found = process_single_combination(
         base_coeffs, num_base_coeffs, poly_degree, i,
@@ -542,7 +547,7 @@ static size_t polynomial_find_root_combinations_helper(
       continue;
     }
 
-    complex long double *my_roots = *roots + (i * poly_degree);
+    cxldouble *my_roots = *roots + (i * poly_degree);
 
     size_t found = process_single_combination(
       base_coeffs, num_base_coeffs, poly_degree, i,
@@ -558,10 +563,10 @@ static size_t polynomial_find_root_combinations_helper(
 }
 
 size_t polynomial_find_root_combinations(
-    const complex long double *base_coeffs,
+    const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
-    complex long double **roots,
+    cxldouble **roots,
     size_t **num_distinct,
     size_t num_combinations) {
   return polynomial_find_root_combinations_helper(
@@ -570,10 +575,10 @@ size_t polynomial_find_root_combinations(
 }
 
 size_t polynomial_find_root_combinations_companion(
-    const complex long double *base_coeffs,
+    const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
-    complex long double **roots,
+    cxldouble **roots,
     size_t **num_distinct,
     size_t num_combinations) {
   return polynomial_find_root_combinations_helper(
@@ -582,10 +587,10 @@ size_t polynomial_find_root_combinations_companion(
 }
 
 size_t polynomial_find_root_combinations_skip(
-    const complex long double *base_coeffs,
+    const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
-    complex long double **roots,
+    cxldouble **roots,
     size_t **num_distinct,
     size_t num_combinations,
     size_t skip) {
@@ -595,10 +600,10 @@ size_t polynomial_find_root_combinations_skip(
 }
 
 size_t polynomial_find_root_combinations_companion_skip(
-    const complex long double *base_coeffs,
+    const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
-    complex long double **roots,
+    cxldouble **roots,
     size_t **num_distinct,
     size_t num_combinations,
     size_t skip) {

@@ -1,9 +1,11 @@
 cmake_minimum_required(VERSION 3.24)
 project(polynomial C)
 
-set(CMAKE_C_STANDARD 23)
-set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
+# msvc doesn't support c23 (smh), use c17
+set(CMAKE_C_STANDARD 17)
+set(CMAKE_C_STANDARD_REQUIRED ON)
 
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
@@ -12,22 +14,45 @@ endif()
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "System: ${CMAKE_SYSTEM_NAME} ${CMAKE_SYSTEM_PROCESSOR}")
+message(STATUS "Compiler: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
+
+# options
+option(STATIC_LINK "static link runtime libraries" ON)
+option(PORTABLE_BUILD "disable -march=native for portable binaries" OFF)
+option(COMPAT_COMPLEX_DOUBLE_ONLY "use double instead of long double for complex (msvc compat)" OFF)
+
+# force double-only mode on msvc (long double == double anyway)
+if(MSVC)
+    set(COMPAT_COMPLEX_DOUBLE_ONLY ON)
+endif()
+
+if(COMPAT_COMPLEX_DOUBLE_ONLY)
+    add_compile_definitions(COMPAT_COMPLEX_DOUBLE_ONLY)
+    message(STATUS "Complex: double precision only")
+else()
+    message(STATUS "Complex: long double precision")
+endif()
 
 # compiler flags
 if(MSVC)
     set(CMAKE_C_FLAGS_RELEASE "/O2 /Ob2 /DNDEBUG /GL")
     set(CMAKE_EXE_LINKER_FLAGS_RELEASE "/LTCG /OPT:REF /OPT:ICF")
 
-    # static CRT linkage (no msvc runtime dependency)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    # static crt linkage
+    if(STATIC_LINK)
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    else()
+        set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL$<$<CONFIG:Debug>:DebugDLL>")
+    endif()
 
     # favor speed, enable intrinsics
     add_compile_options("$<$<CONFIG:Release>:/Oi>" "$<$<CONFIG:Release>:/Ot>")
-elseif(MINGW)
-    set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
-    message(STATUS "MinGW: static linking enabled")
-elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
-    # enable linker garbage collection
+
+    # c99 compatibility for msvc
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
+    add_compile_definitions(_USE_MATH_DEFINES)
+else()
+    # gcc/clang/mingw
     set(CMAKE_C_FLAGS_RELEASE "-O2 -DNDEBUG -ffunction-sections -fdata-sections")
     set(CMAKE_C_FLAGS_RELWITHDEBINFO "-O2 -g -DNDEBUG")
 
@@ -47,23 +72,27 @@ elseif(CMAKE_C_COMPILER_ID MATCHES "Clang|AppleClang|GNU")
         string(APPEND CMAKE_C_FLAGS_RELEASE " -fvectorize")
     endif()
 
-    # linker garbage collection to keep binary small
+    # linker: gc sections
     if(APPLE)
         string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " -Wl,-dead_strip")
     else()
         string(APPEND CMAKE_EXE_LINKER_FLAGS_RELEASE " -Wl,--gc-sections")
     endif()
 
-    # static linking option for gcc on linux
-    option(STATIC_LIBGCC "statically link libgcc" OFF)
-    if(STATIC_LIBGCC AND NOT APPLE)
-        string(APPEND CMAKE_EXE_LINKER_FLAGS " -static-libgcc")
+    # static linking
+    if(STATIC_LINK AND NOT APPLE)
+        if(MINGW)
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static")
+        else()
+            # linux: static libgcc/libstdc++ only (glibc must be dynamic)
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -static-libgcc")
+        endif()
     endif()
 endif()
 
 message(STATUS "C flags (Release): ${CMAKE_C_FLAGS_RELEASE}")
 
-# Link-Time Optimization (for release only)
+# link-time optimization
 include(CheckIPOSupported)
 check_ipo_supported(RESULT ipo_supported OUTPUT ipo_error)
 if(ipo_supported)
@@ -73,9 +102,9 @@ else()
     message(STATUS "LTO: not supported (${ipo_error})")
 endif()
 
-# OpenMP for multithreading
-# macOS with Homebrew libomp needs special handling
+# OpenMP
 if(APPLE)
+    # macos with homebrew libomp needs special handling
     execute_process(
             COMMAND brew --prefix libomp
             OUTPUT_VARIABLE HOMEBREW_LIBOMP_PREFIX
@@ -95,16 +124,13 @@ endif()
 find_package(OpenMP)
 if(OpenMP_C_FOUND)
     message(STATUS "OpenMP: found")
-    if(MINGW)
-        # Link OpenMP statically
-        set(OpenMP_C_FLAGS "-fopenmp")
-        set(OpenMP_LIBS "-Wl,-Bstatic -lgomp -Wl,-Bdynamic")
-    endif()
 else()
     message(STATUS "OpenMP: not found")
 endif()
 
-# LAPACK support
+# LAPACK
+set(LAPACK_FOUND FALSE)
+
 if(APPLE)
     find_library(ACCELERATE_FRAMEWORK Accelerate)
     if(ACCELERATE_FRAMEWORK)
@@ -113,17 +139,37 @@ if(APPLE)
         set(LAPACK_DEFINITIONS HAVE_LAPACK ACCELERATE_NEW_LAPACK)
         message(STATUS "LAPACK: Accelerate framework")
     endif()
-else()
-    find_package(LAPACK)
+elseif(WIN32)
+    # try intel mkl
+    if(NOT DEFINED ENV{MKLROOT})
+        if(EXISTS "C:/Program Files (x86)/Intel/oneAPI/mkl/latest")
+            set(ENV{MKLROOT} "C:/Program Files (x86)/Intel/oneAPI/mkl/latest")
+        endif()
+    endif()
+
+    set(BLA_VENDOR Intel10_64lp_seq)
+    if(STATIC_LINK)
+        set(BLA_STATIC ON)
+    endif()
+    find_package(LAPACK QUIET)
     if(LAPACK_FOUND)
         set(LAPACK_DEFINITIONS HAVE_LAPACK)
-        message(STATUS "LAPACK: ${LAPACK_LIBRARIES}")
+        message(STATUS "LAPACK: Intel MKL")
+    else()
+        message(STATUS "LAPACK: not found (install Intel MKL or set MKLROOT)")
+    endif()
+else()
+    # linux: try system lapack
+    find_package(LAPACK QUIET)
+    if(LAPACK_FOUND)
+        set(LAPACK_DEFINITIONS HAVE_LAPACK)
+        message(STATUS "LAPACK: system")
     else()
         message(STATUS "LAPACK: not found")
     endif()
 endif()
 
-# OpenCL support
+# OpenCL
 find_package(OpenCL)
 if(OpenCL_FOUND)
     message(STATUS "OpenCL: enabled")
@@ -144,13 +190,12 @@ endif()
 # dependencies
 include(FetchContent)
 
-# cJSON has old cmake_minimum_required, suppress the warning/error
+# cJSON has old cmake_minimum_required, suppress the warning
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
 
 # SDL3
-message(STATUS "fetching SDL3...")
+message(STATUS "Fetching SDL3...")
 
-# disable everything we don't need
 set(SDL_SHARED OFF CACHE BOOL "" FORCE)
 set(SDL_STATIC ON CACHE BOOL "" FORCE)
 set(SDL_TEST OFF CACHE BOOL "" FORCE)
@@ -164,7 +209,6 @@ set(SDL_POWER OFF CACHE BOOL "" FORCE)
 set(SDL_SENSOR OFF CACHE BOOL "" FORCE)
 set(SDL_DIALOG OFF CACHE BOOL "" FORCE)
 
-# disable unused video drivers
 set(SDL_DIRECTX OFF CACHE BOOL "" FORCE)
 set(SDL_RENDER_D3D OFF CACHE BOOL "" FORCE)
 set(SDL_RENDER_D3D11 OFF CACHE BOOL "" FORCE)
@@ -174,7 +218,6 @@ set(SDL_RENDER_GPU OFF CACHE BOOL "" FORCE)
 set(SDL_GPU OFF CACHE BOOL "" FORCE)
 set(SDL_VULKAN OFF CACHE BOOL "" FORCE)
 
-# need OpenGL for rendering
 set(SDL_OPENGL ON CACHE BOOL "" FORCE)
 set(SDL_OPENGLES OFF CACHE BOOL "" FORCE)
 
@@ -186,10 +229,11 @@ FetchContent_Declare(SDL3
 )
 FetchContent_MakeAvailable(SDL3)
 
-message(STATUS "fetching cJSON...")
-
 # cJSON
+message(STATUS "Fetching cJSON...")
+
 set(ENABLE_CJSON_TEST OFF CACHE BOOL "" FORCE)
+set(CJSON_OVERRIDE_BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
 set(CJSON_BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 set(CMAKE_POLICY_DEFAULT_CMP0069 NEW)
 FetchContent_Declare(cJSON
@@ -199,28 +243,27 @@ FetchContent_Declare(cJSON
 )
 FetchContent_MakeAvailable(cJSON)
 
-# Target 'cjson' and suppress the float-conversion warning
-if (CMAKE_C_COMPILER_ID MATCHES "(GNU|Clang)")
+# suppress cjson float-conversion warnings
+if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(cjson PRIVATE "-Wno-float-conversion")
-endif()
-
-# same for MSVC
-if (MSVC)
+elseif(MSVC)
     target_compile_options(cjson PRIVATE "/wd4244")
 endif()
 
-# optional libs used by polynomial code
+# collect optional libs
 set(POLY_LIBS "")
+
 if(OpenMP_C_FOUND)
-    if(MINGW)
-        # Static OpenMP for MinGW
-        list(APPEND POLY_LIBS "-Wl,-Bstatic" gomp "-Wl,-Bdynamic" pthread)
-    else()
-        list(APPEND POLY_LIBS OpenMP::OpenMP_C)
-    endif()
+    list(APPEND POLY_LIBS OpenMP::OpenMP_C)
 endif()
+
 if(LAPACK_FOUND)
     list(APPEND POLY_LIBS ${LAPACK_LIBRARIES})
+endif()
+
+# math library (not needed on windows)
+if(NOT WIN32)
+    list(APPEND POLY_LIBS m)
 endif()
 
 # sources
@@ -247,21 +290,22 @@ set(APP_SOURCES
 )
 
 set(SOURCES ${CORE_SOURCES} ${RENDER_SOURCES} ${APP_SOURCES})
-
-# poly lib sources for tests (excludes rendering and app)
 set(POLY_LIB_SOURCES ${CORE_SOURCES})
 
 # main executable
 add_executable(polynomial ${SOURCES})
 target_include_directories(polynomial PRIVATE inc inc/generated ${cjson_SOURCE_DIR})
 target_link_libraries(polynomial PRIVATE SDL3::SDL3-static cjson ${POLY_LIBS})
+
 if(LAPACK_FOUND)
     target_compile_definitions(polynomial PRIVATE ${LAPACK_DEFINITIONS})
 endif()
+
 if(OpenCL_FOUND)
     target_include_directories(polynomial PRIVATE ${OpenCL_INCLUDE_DIRS})
     target_link_libraries(polynomial PRIVATE ${OpenCL_LIBRARIES})
 endif()
+
 if(WIN32)
     target_link_libraries(polynomial PRIVATE winmm imm32 version setupapi)
 endif()
@@ -271,14 +315,14 @@ option(BUILD_BENCHMARK "build benchmarks" ON)
 if(BUILD_BENCHMARK)
     add_executable(test_multithread tests/polymp.c ${POLY_LIB_SOURCES})
     target_include_directories(test_multithread PRIVATE inc)
-    target_link_libraries(test_multithread PRIVATE m ${POLY_LIBS})
+    target_link_libraries(test_multithread PRIVATE ${POLY_LIBS})
     if(LAPACK_FOUND)
         target_compile_definitions(test_multithread PRIVATE ${LAPACK_DEFINITIONS})
     endif()
 
     add_executable(test_throughput tests/throughput.c ${POLY_LIB_SOURCES})
     target_include_directories(test_throughput PRIVATE inc)
-    target_link_libraries(test_throughput PRIVATE m ${POLY_LIBS})
+    target_link_libraries(test_throughput PRIVATE ${POLY_LIBS})
     if(LAPACK_FOUND)
         target_compile_definitions(test_throughput PRIVATE ${LAPACK_DEFINITIONS})
     endif()
@@ -291,7 +335,7 @@ if(BUILD_TESTS)
 
     add_executable(test_polynomial tests/polytest.c ${POLY_LIB_SOURCES})
     target_include_directories(test_polynomial PRIVATE inc)
-    target_link_libraries(test_polynomial PRIVATE m ${POLY_LIBS})
+    target_link_libraries(test_polynomial PRIVATE ${POLY_LIBS})
     if(LAPACK_FOUND)
         target_compile_definitions(test_polynomial PRIVATE ${LAPACK_DEFINITIONS})
     endif()
@@ -306,11 +350,13 @@ if(BUILD_TESTS)
     )
 endif()
 
+# summary
 message(STATUS "")
-message(STATUS "build configuration")
-message(STATUS "  build type:    ${CMAKE_BUILD_TYPE}")
-message(STATUS "  openmp:        ${OpenMP_C_FOUND}")
-message(STATUS "  opencl:        ${OpenCL_FOUND}")
-message(STATUS "  lapack:        ${LAPACK_FOUND}")
-message(STATUS "  lto:           ${ipo_supported}")
+message(STATUS "Build configuration:")
+message(STATUS "  Static link:   ${STATIC_LINK}")
+message(STATUS "  Portable:      ${PORTABLE_BUILD}")
+message(STATUS "  OpenMP:        ${OpenMP_C_FOUND}")
+message(STATUS "  OpenCL:        ${OpenCL_FOUND}")
+message(STATUS "  LAPACK:        ${LAPACK_FOUND}")
+message(STATUS "  LTO:           ${ipo_supported}")
 message(STATUS "")

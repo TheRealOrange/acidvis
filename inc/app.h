@@ -6,7 +6,7 @@
 #define POLYNOMIAL_APP_H
 
 #include <SDL3/SDL.h>
-#include <complex.h>
+#include "compat_complex.h"
 
 #include "animation.h"
 #include "polynomial.h"
@@ -48,12 +48,12 @@ typedef struct {
   bool show_coeffs;         // show coefficient point markers
 
   // base coefficients for VIEW_MODE_POINT_CLOUD (the N draggable points)
-  complex long double *base_coeffs;
+  cxldouble *base_coeffs;
   size_t num_base_coeffs;
   size_t poly_degree_cloud;
 
   // combination cloud roots
-  complex long double *combination_roots;
+  cxldouble *combination_roots;
   size_t *num_distinct;
   size_t comb_roots_stride;
   size_t num_combinations;  // N^(M+1)

@@ -45,8 +45,8 @@ void input_find_hover(AppState *state, float mouse_x, float mouse_y) {
   // check roots (only in roots mode)
   if (state->view_mode == VIEW_MODE_ROOTS && state->poly->roots_valid) {
     for (size_t i = 0; i < state->poly->num_distinct_roots; i++) {
-      float rx = (float)creall(state->poly->roots[i]);
-      float ry = (float)cimagl(state->poly->roots[i]);
+      float rx = (float)cxreall(state->poly->roots[i]);
+      float ry = (float)cximagl(state->poly->roots[i]);
       if (input_point_hit_test(state, mouse_x, mouse_y, rx, ry)) {
         state->hover_mode = DRAG_ROOT;
         state->hover_index = (int)i;
@@ -58,8 +58,8 @@ void input_find_hover(AppState *state, float mouse_x, float mouse_y) {
   // in cloud mode check base_coeffs
   if (state->view_mode == VIEW_MODE_POINT_CLOUD && state->base_coeffs && state->show_coeffs) {
     for (size_t i = 0; i < state->num_base_coeffs; i++) {
-      float cx = (float)creall(state->base_coeffs[i]);
-      float cy = (float)cimagl(state->base_coeffs[i]);
+      float cx = (float)cxreall(state->base_coeffs[i]);
+      float cy = (float)cximagl(state->base_coeffs[i]);
       if (input_point_hit_test(state, mouse_x, mouse_y, cx, cy)) {
         state->hover_mode = DRAG_COEFF;
         state->hover_index = (int)i;
@@ -68,8 +68,8 @@ void input_find_hover(AppState *state, float mouse_x, float mouse_y) {
     }
   } else if (state->poly->coeffs_valid && state->show_coeffs) {
     for (size_t i = 0; i <= state->poly->degree; i++) {
-      float cx = (float)creall(state->poly->coeffs[i]);
-      float cy = (float)cimagl(state->poly->coeffs[i]);
+      float cx = (float)cxreall(state->poly->coeffs[i]);
+      float cy = (float)cximagl(state->poly->coeffs[i]);
       if (input_point_hit_test(state, mouse_x, mouse_y, cx, cy)) {
         state->hover_mode = DRAG_COEFF;
         state->hover_index = (int)i;
@@ -100,7 +100,7 @@ static SDL_AppResult handle_key_down(AppState *state, SDL_Event *event) {
         if (state->base_coeffs) {
           for (size_t i = 0; i < state->num_base_coeffs; i++) {
             float angle = (float)i * 2.0f * (float)M_PI / (float)state->num_base_coeffs;
-            state->base_coeffs[i] = cexpl(I * angle);
+            state->base_coeffs[i] = cxexpl(cxscalel(CXL_I, angle));
           }
         }
         cloud_update(state, 1);
@@ -153,11 +153,11 @@ static SDL_AppResult handle_key_down(AppState *state, SDL_Event *event) {
           SDL_LogWarn(SDL_LOG_CATEGORY_INPUT, "too many combinations");
           break;
         }
-        complex long double *new_coeffs = realloc(state->base_coeffs,
-                                                   new_count * sizeof(complex long double));
+        cxldouble *new_coeffs = realloc(state->base_coeffs,
+                                                   new_count * sizeof(cxldouble));
         if (new_coeffs) {
           state->base_coeffs = new_coeffs;
-          state->base_coeffs[state->num_base_coeffs] = 1.0 + 0.0 * I;
+          state->base_coeffs[state->num_base_coeffs] = CXL(1.0, 0.0);
           state->num_base_coeffs = new_count;
           cloud_reallocate_combinations(state);
           cloud_update(state, 1);
@@ -391,7 +391,7 @@ static void handle_mouse_motion(AppState *state, SDL_Event *event) {
   } else if (state->drag_mode == DRAG_ROOT && state->drag_index >= 0) {
     float cx, cy;
     screen_to_complex(state, mx, my, &cx, &cy);
-    state->poly->roots[state->drag_index] = cx + cy * I;
+    state->poly->roots[state->drag_index] = CXL(cx, cy);
     app_rebuild_from_roots(state);
     state->needs_redraw = true;
 
@@ -400,7 +400,7 @@ static void handle_mouse_motion(AppState *state, SDL_Event *event) {
     screen_to_complex(state, mx, my, &cx, &cy);
 
     if (state->view_mode == VIEW_MODE_POINT_CLOUD) {
-      state->base_coeffs[state->drag_index] = cx + cy * I;
+      state->base_coeffs[state->drag_index] = CXL(cx, cy);
       // during dragging, skip combinations if there are too many
       size_t skip = 1;
       if (state->num_combinations > DRAG_RENDER_POINTS) {
@@ -409,7 +409,7 @@ static void handle_mouse_motion(AppState *state, SDL_Event *event) {
       state->drag_skip = skip;
       cloud_update(state, skip);
     } else {
-      state->poly->coeffs[state->drag_index] = cx + cy * I;
+      state->poly->coeffs[state->drag_index] = CXL(cx, cy);
       app_rebuild_from_coeffs(state);
     }
     state->needs_redraw = true;

@@ -19,7 +19,7 @@
 // Note: This method converts to double precision internally for LAPACK compatibility.
 //       Results are converted back to long double but some precision may be lost.
 bool _polynomial_find_roots_companion(polynomial_t *poly,
-                                     complex long double *roots,
+                                     cxldouble *roots,
                                      size_t *num_roots);
 
 // Find roots and store them directly in the polynomial structure
@@ -31,10 +31,10 @@ bool polynomial_find_roots_companion(polynomial_t *poly);
 // matrices and eigenvalues must be contiguous arrays
 // returns number of successful eigenvalue computations
 size_t compute_eigenvalues_batch(
-    complex double *matrices,      // input: batch_size × n × n matrices
+    cxdouble *matrices,      // input: batch_size × n × n matrices
     size_t n,                       // matrix dimension
     size_t batch_size,              // number of matrices
-    complex double *eigenvalues);  // output: batch_size × n eigenvalues
+    cxdouble *eigenvalues);  // output: batch_size × n eigenvalues
 
 #endif // HAVE_LAPACK
 

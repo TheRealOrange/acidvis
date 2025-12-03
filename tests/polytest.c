@@ -9,7 +9,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <math.h>
-#include <complex.h>
+#include "compat_complex.h"
 #include <time.h>
 #include <string.h>
 
@@ -94,13 +94,13 @@ static double rng_range(double min, double max) {
 
 // helper functions
 
-static bool complex_approx_eq(complex long double a, complex long double b, double tol) {
-    double diff = cabs(a - b);
-    double mag = fmax(cabs(a), cabs(b));
+static bool complex_approx_eq(cxldouble a, cxldouble b, double tol) {
+    double diff = cxabs(a - b);
+    double mag = fmax(cxabs(a), cxabs(b));
     return diff < tol * fmax(1.0, mag);
 }
 
-static bool root_found(complex long double *roots, size_t n, complex long double expected, double tol) {
+static bool root_found(cxldouble *roots, size_t n, cxldouble expected, double tol) {
     for (size_t i = 0; i < n; i++) {
         if (complex_approx_eq(roots[i], expected, tol)) {
             return true;
@@ -109,14 +109,14 @@ static bool root_found(complex long double *roots, size_t n, complex long double
     return false;
 }
 
-static bool verify_root(polynomial_t *p, complex long double root, double tol) {
-    complex long double val = polynomial_eval(p, root);
+static bool verify_root(polynomial_t *p, cxldouble root, double tol) {
+    cxldouble val = polynomial_eval(p, root);
     double scale = 0;
     for (size_t i = 0; i <= p->degree; i++) {
-        double m = cabs(p->coeffs[i]);
+        double m = cxabs(p->coeffs[i]);
         if (m > scale) scale = m;
     }
-    return cabs(val) < tol * scale * (double)p->degree;
+    return cxabs(val) < tol * scale * (double)p->degree;
 }
 
 // count how many found roots verify correctly
@@ -134,7 +134,7 @@ static size_t count_verified_roots(polynomial_t *p, double tol) {
 static double max_residual(polynomial_t *p) {
     double max_res = 0;
     for (size_t i = 0; i < p->num_distinct_roots; i++) {
-        double res = cabs(polynomial_eval(p, p->roots[i]));
+        double res = cxabs(polynomial_eval(p, p->roots[i]));
         if (res > max_res) max_res = res;
     }
     return max_res;
@@ -208,7 +208,7 @@ static int test_polynomial_new(void) {
 }
 
 static int test_polynomial_from_roots(void) {
-    complex long double roots[] = {1.0, 2.0, 3.0};
+    cxldouble roots[] = {1.0, 2.0, 3.0};
     polynomial_t *p = polynomial_from_roots(roots, 3, true);
     TEST_ASSERT(p != NULL, "polynomial_from_roots should return non-null");
     TEST_ASSERT(p->degree == 3, "degree should be 3");
@@ -218,7 +218,7 @@ static int test_polynomial_from_roots(void) {
 }
 
 static int test_find_roots_cubic(void) {
-    complex long double roots[] = {1.0, 2.0, 3.0};
+    cxldouble roots[] = {1.0, 2.0, 3.0};
     polynomial_t *p = polynomial_from_roots(roots, 3, true);
     p->roots_valid = false;
     p->num_distinct_roots = 0;
@@ -234,9 +234,9 @@ static int test_find_roots_cubic(void) {
 }
 
 static int test_degree_15(void) {
-    complex long double roots[15] = {
+    cxldouble roots[15] = {
         -3.0, -2.0, -1.0, -0.5, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0,
-        0.5 + 0.5*I, 0.5 - 0.5*I, -1.0 + I, -1.0 - I, 4.0
+        0.5 + CXL(0, 0.5), 0.5 - CXL(0, 0.5), -1.0 + I, -1.0 - I, 4.0
     };
 
     polynomial_t *p = polynomial_from_roots(roots, 15, true);
@@ -314,7 +314,7 @@ static int compare_methods_roots_of_unity(size_t n) {
 static int compare_wilkinson(size_t n) {
     printf("  comparing methods: wilkinson polynomial degree %zu...\n", n);
 
-    complex long double *roots = malloc(n * sizeof(complex long double));
+    cxldouble *roots = malloc(n * sizeof(cxldouble));
     if (!roots) return 0;
 
     for (size_t i = 1; i <= n; i++) {
@@ -368,13 +368,13 @@ static int compare_random(size_t n) {
     printf("  comparing methods: random roots degree %zu...\n", n);
     srandom(42 + n);
 
-    complex long double *roots = malloc(n * sizeof(complex long double));
+    cxldouble *roots = malloc(n * sizeof(cxldouble));
     if (!roots) return 0;
 
     for (size_t i = 0; i < n; i++) {
         double r = rng_range(0.5, 3.0);
         double theta = rng_range(0, 2.0 * M_PI);
-        roots[i] = r * cexp(I * theta);
+        roots[i] = r * cxexp(I * theta);
     }
 
     polynomial_t *p1 = polynomial_from_roots(roots, n, true);
@@ -423,7 +423,7 @@ static int compare_random(size_t n) {
 static int compare_chebyshev(size_t n) {
     printf("  comparing methods: chebyshev roots degree %zu...\n", n);
 
-    complex long double *roots = malloc(n * sizeof(complex long double));
+    cxldouble *roots = malloc(n * sizeof(cxldouble));
     if (!roots) return 0;
 
     for (size_t k = 1; k <= n; k++) {
@@ -526,7 +526,7 @@ static int test_roots_of_unity(size_t n) {
     // check that found roots are actually on the unit circle
     size_t on_circle = 0;
     for (size_t i = 0; i < p->num_distinct_roots; i++) {
-        if (fabs(cabs(p->roots[i]) - 1.0) < 0.01) on_circle++;
+        if (fabs(cxabs(p->roots[i]) - 1.0) < 0.01) on_circle++;
     }
     printf("  on unit circle: %zu/%zu\n", on_circle, p->num_distinct_roots);
 

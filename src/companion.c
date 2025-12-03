@@ -2,7 +2,7 @@
 
 #ifdef HAVE_LAPACK
 
-#include <complex.h>
+#include "compat_complex.h"
 #include <float.h>
 #include <math.h>
 #include <stdlib.h>
@@ -12,7 +12,7 @@
 #include <omp.h>
 #endif
 
-// zgeev: Computes eigenvalues (and optionally eigenvectors) of a complex double matrix
+// zgeev: Computes eigenvalues (and optionally eigenvectors) of a cxdouble matrix
 //
 // JOBVL: 'N' = don't compute left eigenvectors
 // JOBVR: 'N' = don't compute right eigenvectors
@@ -35,6 +35,16 @@
 #define LAPACK_zgeev zgeev_
 #else
 // fortran interface
+// _Dcomplex on msvc, double _Complex elsewhere
+#if defined(_MSC_VER) && !defined(__clang__)
+extern void zgeev_(const char *jobvl, const char *jobvr, const int *n,
+                   _Dcomplex *a, const int *lda,
+                   _Dcomplex *w,
+                   _Dcomplex *vl, const int *ldvl,
+                   _Dcomplex *vr, const int *ldvr,
+                   _Dcomplex *work, const int *lwork,
+                   double *rwork, int *info);
+#else
 extern void zgeev_(const char *jobvl, const char *jobvr, const int *n,
                    double _Complex *a, const int *lda,
                    double _Complex *w,
@@ -42,15 +52,16 @@ extern void zgeev_(const char *jobvl, const char *jobvr, const int *n,
                    double _Complex *vr, const int *ldvr,
                    double _Complex *work, const int *lwork,
                    double *rwork, int *info);
+#endif
 #define LAPACK_zgeev zgeev_
 #endif
 
 #define COMPANION_EPSILON 1e-12
 #define REL_EPSILON 1e-15
 
-static bool complex_approx_equal_d(complex double a, complex double b) {
-  double diff = cabs(a - b);
-  double mag = fmax(cabs(a), cabs(b));
+static bool complex_approx_equal_d(cxdouble a, cxdouble b) {
+  double diff = cxabs(cxsub(a, b));
+  double mag = fmax(cxabs(a), cxabs(b));
   return diff < (DBL_EPSILON + REL_EPSILON * mag);
 }
 
@@ -67,31 +78,31 @@ static bool complex_approx_equal_d(complex double a, complex double b) {
 // The eigenvalues of this matrix are exactly the roots of p(x)
 //
 // Matrix is stored in column-major order for LAPACK
-static complex double *build_companion_matrix(polynomial_t *poly, size_t n) {
+static cxdouble *build_companion_matrix(polynomial_t *poly, size_t n) {
   // n x n matrix stored in column-major order
-  complex double *matrix = calloc(n * n, sizeof(complex double));
+  cxdouble *matrix = calloc(n * n, sizeof(cxdouble));
   if (!matrix) return NULL;
 
   // Get the leading coefficient for normalization (make monic)
-  complex long double lead = poly->coeffs[n];
+  cxldouble lead = poly->coeffs[n];
 
   // Fill the subdiagonal with 1s
   // In column-major: element (i,j) is at index i + j*n
   for (size_t i = 1; i < n; i++) {
-    matrix[i + (i - 1) * n] = 1.0;
+    matrix[i + (i - 1) * n] = CXL(1.0, 0.0);
   }
 
   // Fill the last column with -c_i / c_n (negative normalized coefficients)
   for (size_t i = 0; i < n; i++) {
-    complex long double coeff = poly->coeffs[i] / lead;
-    matrix[i + (n - 1) * n] = (complex double) (-coeff);
+    cxldouble coeff = cxdivl(poly->coeffs[i], lead);
+    matrix[i + (n - 1) * n] = cxnegl(coeff);
   }
 
   return matrix;
 }
 
 // Compute eigenvalues using LAPACK's zgeev
-static bool compute_eigenvalues(complex double *matrix, size_t n, complex double *eigenvalues) {
+static bool compute_eigenvalues(cxdouble *matrix, size_t n, cxdouble *eigenvalues) {
   int info;
   int N = (int) n;
 
@@ -102,13 +113,13 @@ static bool compute_eigenvalues(complex double *matrix, size_t n, complex double
   int ldvr = 1;
 
   // workspace query
-  complex double work_query;
+  cxdouble work_query;
   int lwork = -1;
   double *rwork = malloc(2 * n * sizeof(double));
   if (!rwork) return false;
 
   LAPACK_zgeev(&jobvl, &jobvr, &N, matrix, &N, eigenvalues,
-               nullptr, &ldvl, nullptr, &ldvr,
+               NULL, &ldvl, NULL, &ldvr,
                &work_query, &lwork, rwork, &info);
 
   if (info != 0) {
@@ -116,8 +127,8 @@ static bool compute_eigenvalues(complex double *matrix, size_t n, complex double
     return false;
   }
 
-  lwork = (int) creal(work_query);
-  complex double *work = malloc(lwork * sizeof(complex double));
+  lwork = (int) cxreal(work_query);
+  cxdouble *work = malloc(lwork * sizeof(cxdouble));
   if (!work) {
     free(rwork);
     return false;
@@ -125,7 +136,7 @@ static bool compute_eigenvalues(complex double *matrix, size_t n, complex double
 
   // computation
   LAPACK_zgeev(&jobvl, &jobvr, &N, matrix, &N, eigenvalues,
-               nullptr, &ldvl, nullptr, &ldvr,
+               NULL, &ldvl, NULL, &ldvr,
                work, &lwork, rwork, &info);
 
   free(work);
@@ -134,14 +145,14 @@ static bool compute_eigenvalues(complex double *matrix, size_t n, complex double
   return (info == 0);
 }
 
-// batched eigenvalue computation with memory awareness
+// batched eigenvalue computation
 // processes multiple companion matrices in parallel
 size_t compute_eigenvalues_batch(
-  complex double *matrices, // input: batch_size Ã— n Ã— n matrices (contiguous)
+  cxdouble *matrices, // input: batch_size × n × n matrices (contiguous)
   size_t n, // matrix dimension
   size_t batch_size, // number of matrices
-  complex double *eigenvalues) {
-  // output: batch_size Ã— n eigenvalues (contiguous)
+  cxdouble *eigenvalues) {
+  // output: batch_size × n eigenvalues (contiguous)
 
   if (!matrices || !eigenvalues || n == 0 || batch_size == 0) {
     return 0;
@@ -154,14 +165,14 @@ size_t compute_eigenvalues_batch(
   int ldvr = 1;
 
   // do workspace query using the first matrix
-  complex double work_query;
+  cxdouble work_query;
   int lwork = -1;
   double *rwork_query = malloc(2 * n * sizeof(double));
   if (!rwork_query) return 0;
 
   int info;
   LAPACK_zgeev(&jobvl, &jobvr, &N, matrices, &N, eigenvalues,
-               nullptr, &ldvl, nullptr, &ldvr,
+               NULL, &ldvl, NULL, &ldvr,
                &work_query, &lwork, rwork_query, &info);
 
   free(rwork_query);
@@ -170,34 +181,35 @@ size_t compute_eigenvalues_batch(
     return 0;
   }
 
-  lwork = (int) creal(work_query);
+  lwork = (int) cxreal(work_query);
 
   // now process all matrices in parallel with thread-local workspaces
   size_t successful = 0;
 
 #ifdef _OPENMP
+  int i;  // msvc openmp requires signed int declared outside
 #pragma omp parallel reduction(+:successful)
   {
     // each thread gets its own workspace
     double *rwork = malloc(2 * n * sizeof(double));
-    complex double *work = malloc(lwork * sizeof(complex double));
+    cxdouble *work = malloc(lwork * sizeof(cxdouble));
 
     if (rwork && work) {
 #pragma omp for schedule(dynamic, 4)
-      for (size_t i = 0; i < batch_size; i++) {
-        complex double *matrix = matrices + (i * n * n);
-        complex double *evals = eigenvalues + (i * n);
+      for (i = 0; i < (int)batch_size; i++) {
+        cxdouble *matrix = matrices + (i * n * n);
+        cxdouble *evals = eigenvalues + (i * n);
 
         // copy matrix since LAPACK destroys it
-        complex double *matrix_copy = malloc(n * n * sizeof(complex double));
+        cxdouble *matrix_copy = malloc(n * n * sizeof(cxdouble));
         if (!matrix_copy) continue;
 
-        memcpy(matrix_copy, matrix, n * n * sizeof(complex double));
+        memcpy(matrix_copy, matrix, n * n * sizeof(cxdouble));
 
         // compute eigenvalues
         int thread_info;
         LAPACK_zgeev(&jobvl, &jobvr, &N, matrix_copy, &N, evals,
-                     nullptr, &ldvl, nullptr, &ldvr,
+                     NULL, &ldvl, NULL, &ldvr,
                      work, &lwork, rwork, &thread_info);
 
         free(matrix_copy);
@@ -214,28 +226,21 @@ size_t compute_eigenvalues_batch(
 #else
   // sequential fallback
   double *rwork = malloc(2 * n * sizeof(double));
-  complex double *work = malloc(lwork * sizeof(complex double));
+  cxdouble *work = malloc(lwork * sizeof(cxdouble));
 
   if (rwork && work) {
     for (size_t i = 0; i < batch_size; i++) {
-      complex
-      double *matrix = matrices + (i * n * n);
-      complex
-      double *evals = eigenvalues + (i * n);
+      cxdouble *matrix = matrices + (i * n * n);
+      cxdouble *evals = eigenvalues + (i * n);
 
-      complex
-      double *matrix_copy = malloc(n * n * sizeof(complex double)
-      )
-      ;
+      cxdouble *matrix_copy = malloc(n * n * sizeof(cxdouble));
       if (!matrix_copy) continue;
 
-      memcpy(matrix_copy, matrix, n * n * sizeof(complex double)
-      )
-      ;
+      memcpy(matrix_copy, matrix, n * n * sizeof(cxdouble));
 
       int thread_info;
       LAPACK_zgeev(&jobvl, &jobvr, &N, matrix_copy, &N, evals,
-                   nullptr, &ldvl, nullptr, &ldvr,
+                   NULL, &ldvl, NULL, &ldvr,
                    work, &lwork, rwork, &thread_info);
 
       free(matrix_copy);
@@ -254,32 +259,32 @@ size_t compute_eigenvalues_batch(
 }
 
 // Polish a root using Newton's method
-static complex long double polish_root_companion(polynomial_t *poly, complex long double z) {
+static cxldouble polish_root_companion(polynomial_t *poly, cxldouble z) {
   const int MAX_ITERS = 30;
 
   for (int iter = 0; iter < MAX_ITERS; iter++) {
     // Evaluate P(z) and P'(z) using Horner's method
-    complex long double p_val = poly->coeffs[poly->degree];
-    complex long double dp_val = 0;
+    cxldouble p_val = poly->coeffs[poly->degree];
+    cxldouble dp_val = CXL(0.0, 0.0);
 
     for (size_t i = poly->degree; i > 0; i--) {
-      dp_val = dp_val * z + p_val;
-      p_val = poly->coeffs[i - 1] + p_val * z;
+      dp_val = cxaddl(cxmull(dp_val, z), p_val);
+      p_val = cxaddl(poly->coeffs[i - 1], cxmull(p_val, z));
     }
 
-    if (cabsl(dp_val) < LDBL_EPSILON) break;
+    if (cxabsl(dp_val) < LDBL_EPSILON) break;
 
-    complex long double delta = p_val / dp_val;
-    z = z - delta;
+    cxldouble delta = cxdivl(p_val, dp_val);
+    z = cxsubl(z, delta);
 
-    if (cabsl(delta) < REL_EPSILON * fmaxl(1.0L, cabsl(z))) break;
+    if (cxabsl(delta) < REL_EPSILON * fmaxl(1.0L, cxabsl(z))) break;
   }
 
   return z;
 }
 
 bool _polynomial_find_roots_companion(polynomial_t *poly,
-                                      complex long double *roots,
+                                      cxldouble *roots,
                                       size_t *num_roots) {
   if (!poly || !poly->coeffs_valid || poly->degree == 0 || !roots || !num_roots) {
     return false;
@@ -290,29 +295,35 @@ bool _polynomial_find_roots_companion(polynomial_t *poly,
 
   // Handle degree 1 directly: ax + b = 0 => x = -b/a
   if (n == 1) {
-    roots[0] = -poly->coeffs[0] / poly->coeffs[1];
+    roots[0] = cxdivl(cxnegl(poly->coeffs[0]), poly->coeffs[1]);
     *num_roots = 1;
     return true;
   }
 
   // Handle degree 2 with quadratic formula for better precision
   if (n == 2) {
-    complex long double a = poly->coeffs[2];
-    complex long double b = poly->coeffs[1];
-    complex long double c = poly->coeffs[0];
-    complex long double disc = csqrtl(b * b - 4.0L * a * c);
-    roots[0] = (-b + disc) / (2.0L * a);
-    roots[1] = (-b - disc) / (2.0L * a);
+    cxldouble a = poly->coeffs[2];
+    cxldouble b = poly->coeffs[1];
+    cxldouble c = poly->coeffs[0];
+    // disc = sqrt(b*b - 4*a*c)
+    cxldouble b2 = cxmull(b, b);
+    cxldouble ac4 = cxscalel(cxmull(a, c), 4.0L);
+    cxldouble disc = cxsqrtl(cxsubl(b2, ac4));
+    // roots = (-b ± disc) / (2*a)
+    cxldouble neg_b = cxnegl(b);
+    cxldouble denom = cxscalel(a, 2.0L);
+    roots[0] = cxdivl(cxaddl(neg_b, disc), denom);
+    roots[1] = cxdivl(cxsubl(neg_b, disc), denom);
     *num_roots = 2;
     return true;
   }
 
   // Build companion matrix
-  complex double *matrix = build_companion_matrix(poly, n);
+  cxdouble *matrix = build_companion_matrix(poly, n);
   if (!matrix) return false;
 
   // Allocate eigenvalue array
-  complex double *eigenvalues = malloc(n * sizeof(complex double));
+  cxdouble *eigenvalues = malloc(n * sizeof(cxdouble));
   if (!eigenvalues) {
     free(matrix);
     return false;
@@ -329,7 +340,7 @@ bool _polynomial_find_roots_companion(polynomial_t *poly,
 
   // Convert eigenvalues to long double and polish them
   for (size_t i = 0; i < n; i++) {
-    complex long double raw_root = (complex long double) eigenvalues[i];
+    cxldouble raw_root = cx_to_cxl(eigenvalues[i]);
     roots[i] = polish_root_companion(poly, raw_root);
   }
 
@@ -340,15 +351,15 @@ bool _polynomial_find_roots_companion(polynomial_t *poly,
 
 // Compare function for sorting complex numbers
 static int complex_compare_d(const void *a, const void *b) {
-  complex long double ca = *(const complex long double *) a;
-  complex long double cb = *(const complex long double *) b;
+  cxldouble ca = *(const cxldouble *) a;
+  cxldouble cb = *(const cxldouble *) b;
 
-  long double real_diff = creall(ca) - creall(cb);
+  long double real_diff = cxreall(ca) - cxreall(cb);
   if (fabsl(real_diff) > LDBL_EPSILON) {
     return (real_diff > 0) - (real_diff < 0);
   }
 
-  long double imag_diff = cimagl(ca) - cimagl(cb);
+  long double imag_diff = cximagl(ca) - cximagl(cb);
   return (imag_diff > 0) - (imag_diff < 0);
 }
 
@@ -357,7 +368,7 @@ bool polynomial_find_roots_companion(polynomial_t *poly) {
     return false;
   }
 
-  complex long double *raw_roots = malloc(poly->degree * sizeof(complex long double));
+  cxldouble *raw_roots = malloc(poly->degree * sizeof(cxldouble));
   if (!raw_roots) return false;
 
   size_t num_roots;
@@ -369,15 +380,15 @@ bool polynomial_find_roots_companion(polynomial_t *poly) {
   }
 
   // Sort roots for deduplication
-  qsort(raw_roots, num_roots, sizeof(complex long double), complex_compare_d);
+  qsort(raw_roots, num_roots, sizeof(cxldouble), complex_compare_d);
 
   // Deduplicate and compute multiplicities
   size_t distinct_count = 0;
-  complex long double prev_root = 0;
+  cxldouble prev_root = CXL(0.0, 0.0);
 
   for (size_t i = 0; i < num_roots; i++) {
     if (distinct_count == 0 ||
-        !complex_approx_equal_d((complex double) raw_roots[i], (complex double) prev_root)) {
+        !complex_approx_equal_d(cxl_to_cx(raw_roots[i]), cxl_to_cx(prev_root))) {
       // New distinct root
       poly->roots[distinct_count] = raw_roots[i];
       poly->multiplicity[distinct_count] = 1;

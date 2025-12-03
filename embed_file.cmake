@@ -27,7 +27,7 @@ function(embed_text_file INPUT_FILE OUTPUT_HEADER VARIABLE_NAME)
 #ifndef EMBEDDED_${GUARD_NAME}_H
 #define EMBEDDED_${GUARD_NAME}_H
 
-static constexpr char ${VARIABLE_NAME}[] =
+static const char ${VARIABLE_NAME}[] =
 \"${FILE_CONTENT}\"\;
 
 #endif /* EMBEDDED_${GUARD_NAME}_H */

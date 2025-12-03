@@ -171,8 +171,8 @@ void ui_render_point_markers(AppState *state) {
   if (state->view_mode == VIEW_MODE_POINT_CLOUD && state->base_coeffs && state->show_coeffs) {
     // cloud mode: draw base coefficients (the N draggable points)
     for (size_t i = 0; i < state->num_base_coeffs && i < 26; i++) {
-      float cx = (float)creall(state->base_coeffs[i]);
-      float cy = (float)cimagl(state->base_coeffs[i]);
+      float cx = (float)cxreall(state->base_coeffs[i]);
+      float cy = (float)cximagl(state->base_coeffs[i]);
       float sx, sy;
       complex_to_screen(state, cx, cy, &sx, &sy);
 
@@ -202,8 +202,8 @@ void ui_render_point_markers(AppState *state) {
   } else if (state->poly && state->poly->coeffs_valid && state->show_coeffs) {
     // roots mode: draw polynomial coefficients
     for (size_t i = 0; i <= state->poly->degree && i < 26; i++) {
-      float cx = (float)creall(state->poly->coeffs[i]);
-      float cy = (float)cimagl(state->poly->coeffs[i]);
+      float cx = (float)cxreall(state->poly->coeffs[i]);
+      float cy = (float)cximagl(state->poly->coeffs[i]);
       float sx, sy;
       complex_to_screen(state, cx, cy, &sx, &sy);
 
@@ -236,8 +236,8 @@ void ui_render_point_markers(AppState *state) {
   if (state->poly && state->poly->roots_valid) {
     if (state->view_mode == VIEW_MODE_ROOTS && state->show_roots) {
       for (size_t i = 0; i < state->poly->num_distinct_roots; i++) {
-        float rx = (float)creall(state->poly->roots[i]);
-        float ry = (float)cimagl(state->poly->roots[i]);
+        float rx = (float)cxreall(state->poly->roots[i]);
+        float ry = (float)cximagl(state->poly->roots[i]);
         float sx, sy;
         complex_to_screen(state, rx, ry, &sx, &sy);
 
@@ -292,13 +292,13 @@ void ui_render_frame(AppState *state) {
   // copy pixel data to texture
   const unsigned char *pixels = get_pixel_data();
   if (pixels) {
-    SDL_UpdateTexture(state->texture, nullptr, pixels, state->width * 4);
+    SDL_UpdateTexture(state->texture, NULL, pixels, state->width * 4);
   }
 
   // clear and draw
   SDL_SetRenderDrawColor(state->ren, 0, 0, 0, 255);
   SDL_RenderClear(state->ren);
-  SDL_RenderTexture(state->ren, state->texture, nullptr, nullptr);
+  SDL_RenderTexture(state->ren, state->texture, NULL, NULL);
 
   // draw point markers
   ui_render_point_markers(state);

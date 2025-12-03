@@ -7,7 +7,7 @@
 
 #include <stdbool.h>
 #include <stddef.h>
-#include <complex.h>
+#include "compat_complex.h"
 
 #ifdef HAVE_OPENCL
 
@@ -48,7 +48,7 @@ void render_frame_roots(float scale, float x_off, float y_off);
 void clear_frame_buffer(unsigned char r, unsigned char g, unsigned char b);
 
 // render the roots point cloud given view parameters
-void render_point_cloud(complex long double *roots, size_t *num_distinct, size_t num_perms, size_t stride, float point_radius,
+void render_point_cloud(cxldouble *roots, size_t *num_distinct, size_t num_perms, size_t stride, float point_radius,
                         float scale, float x_off, float y_off);
 
 // get the pixel data after rendering (rgba format, 4 bytes per pixel)

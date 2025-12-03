@@ -16,19 +16,19 @@ bool use_log_scale = false;
 float pix_scale = 0.0f;
 float x_offset = 0.0f;
 float y_offset = 0.0f;
-polynomial_t *current_polynomial = nullptr;
+polynomial_t *current_polynomial = NULL;
 
 size_t frame_width = 0;
 size_t frame_height = 0;
 size_t total_pixels = 0;
 float global_max_mag_host = 0.0f;
 
-unsigned char *host_pixels = nullptr;
+unsigned char *host_pixels = NULL;
 
 // cpu hue accumulation buffers
-float *hue_x_val = nullptr;
-float *hue_y_val = nullptr;
-int *hue_count = nullptr;
+float *hue_x_val = NULL;
+float *hue_y_val = NULL;
+int *hue_count = NULL;
 
 // gpu initialization flag
 bool gpu_initialized = false;
@@ -57,20 +57,20 @@ void cleanup_renderer(void) {
 
   if (host_pixels) {
     free(host_pixels);
-    host_pixels = nullptr;
+    host_pixels = NULL;
   }
 
   if (hue_x_val) {
     free(hue_x_val);
-    hue_x_val = nullptr;
+    hue_x_val = NULL;
   }
   if (hue_y_val) {
     free(hue_y_val);
-    hue_y_val = nullptr;
+    hue_y_val = NULL;
   }
   if (hue_count) {
     free(hue_count);
-    hue_count = nullptr;
+    hue_count = NULL;
   }
 }
 
@@ -159,7 +159,7 @@ void render_frame_roots(float scale_inp, float x_off_inp, float y_off_inp) {
 #endif
 }
 
-void render_point_cloud(complex long double *roots, size_t *num_distinct,
+void render_point_cloud(cxldouble *roots, size_t *num_distinct,
                         size_t num_perms, size_t stride, float point_radius,
                         float scale, float x_off, float y_off) {
 #ifdef HAVE_OPENCL

@@ -15,13 +15,13 @@ typedef enum {
 } jt_status;
 
 polynomial_t *H_0(polynomial_t *P);
-jt_status H_norm_next(polynomial_t *H, polynomial_t *P, complex long double *k_p, complex long double *k_h,
-                      complex long double shift, complex long double *next_shift, polynomial_t **H_out);
+jt_status H_norm_next(polynomial_t *H, polynomial_t *P, cxldouble *k_p, cxldouble *k_h,
+                      cxldouble shift, cxldouble *next_shift, polynomial_t **H_out);
 
 long double cauchy_bound(polynomial_t *P);
 
-jt_status find_next_root(polynomial_t *P, complex long double *root_out);
-bool polynomial_find_roots_scaled(polynomial_t *poly, complex long double *roots, size_t *num_roots);
-polynomial_t *polynomial_deflate(polynomial_t *P, complex long double root);
+jt_status find_next_root(polynomial_t *P, cxldouble *root_out);
+bool polynomial_find_roots_scaled(polynomial_t *poly, cxldouble *roots, size_t *num_roots);
+polynomial_t *polynomial_deflate(polynomial_t *P, cxldouble root);
 
 #endif //POLYNOMIAL_POLYSOLVE_H

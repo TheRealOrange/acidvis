@@ -15,16 +15,16 @@
 
 // create initial polynomial with roots on unit circle
 polynomial_t *app_create_default_polynomial(size_t degree) {
-  complex long double *roots = calloc(degree, sizeof(complex long double));
+  cxldouble *roots = calloc(degree, sizeof(cxldouble));
   if (!roots) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "failed to allocate roots array");
-    return nullptr;
+    return NULL;
   }
 
   // initialize roots on unit circle
   for (size_t i = 0; i < degree; i++) {
     long double angle = ((long double)i * M_PI * 2.0L) / (long double)degree;
-    roots[i] = cexpl(I * angle);
+    roots[i] = cxexpl(cxscalel(CXL_I, angle));
   }
 
   polynomial_t *p = polynomial_from_roots(roots, degree, false);
@@ -46,7 +46,7 @@ void app_rebuild_from_roots(AppState *state) {
     total_roots += state->poly->multiplicity[i];
   }
 
-  complex long double *all_roots = malloc(total_roots * sizeof(complex long double));
+  cxldouble *all_roots = malloc(total_roots * sizeof(cxldouble));
   if (!all_roots) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "failed to allocate roots for rebuild");
     return;
@@ -134,11 +134,11 @@ bool app_load_animation(AppState *state, const char *filename) {
   // free existing
   if (state->anim_state) {
     anim_free_state(state->anim_state);
-    state->anim_state = nullptr;
+    state->anim_state = NULL;
   }
   if (state->anim_script) {
     anim_free_script(state->anim_script);
-    state->anim_script = nullptr;
+    state->anim_script = NULL;
   }
   state->anim_active = false;
 
@@ -153,7 +153,7 @@ bool app_load_animation(AppState *state, const char *filename) {
   state->anim_state = anim_create_state(state->anim_script);
   if (!state->anim_state) {
     anim_free_script(state->anim_script);
-    state->anim_script = nullptr;
+    state->anim_script = NULL;
     return false;
   }
 
@@ -168,7 +168,7 @@ bool app_load_animation(AppState *state, const char *filename) {
     size_t needed = state->anim_script->num_coeffs;
     if (needed > state->num_base_coeffs) {
       free(state->base_coeffs);
-      state->base_coeffs = malloc(needed * sizeof(complex long double));
+      state->base_coeffs = malloc(needed * sizeof(cxldouble));
       state->num_base_coeffs = needed;
     } else if (needed > 0 && needed < state->num_base_coeffs) {
       state->num_base_coeffs = needed;
@@ -214,11 +214,11 @@ bool app_load_animation(AppState *state, const char *filename) {
 void app_unload_animation(AppState *state) {
   if (state->anim_state) {
     anim_free_state(state->anim_state);
-    state->anim_state = nullptr;
+    state->anim_state = NULL;
   }
   if (state->anim_script) {
     anim_free_script(state->anim_script);
-    state->anim_script = nullptr;
+    state->anim_script = NULL;
   }
   state->anim_active = false;
   state->anim_filename[0] = '\0';
@@ -240,7 +240,7 @@ bool app_init(AppState *state, int argc, char **argv) {
     return false;
   }
 
-  state->ren = SDL_CreateRenderer(state->win, nullptr);
+  state->ren = SDL_CreateRenderer(state->win, NULL);
   if (!state->ren) {
     SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "failed to create renderer: %s", SDL_GetError());
     return false;
@@ -289,11 +289,11 @@ bool app_init(AppState *state, int argc, char **argv) {
   // point cloud defaults
   state->num_base_coeffs = 3;
   state->poly_degree_cloud = 4;
-  state->base_coeffs = malloc(state->num_base_coeffs * sizeof(complex long double));
+  state->base_coeffs = malloc(state->num_base_coeffs * sizeof(cxldouble));
   if (state->base_coeffs) {
     for (size_t i = 0; i < state->num_base_coeffs; i++) {
       long double angle = ((long double)i * M_PI * 2.0L) / (long double)state->num_base_coeffs;
-      state->base_coeffs[i] = cexpl(I * angle);
+      state->base_coeffs[i] = cxexpl(cxscalel(CXL_I, angle));
     }
   }
 

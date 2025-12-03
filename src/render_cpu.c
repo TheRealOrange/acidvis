@@ -28,13 +28,13 @@ void render_frame_cpu(void) {
     for (size_t x = 0; x < frame_width; x++) {
       float real_x = ((float)x - (float)frame_width * 0.5f) * pix_scale + x_offset;
       float real_y = ((float)y - (float)frame_height * 0.5f) * pix_scale + y_offset;
-      complex long double z = real_x + real_y * I;
+      cxldouble z = CXL(real_x, real_y);
 
-      complex long double result = polynomial_eval(current_polynomial, z);
+      cxldouble result = polynomial_eval(current_polynomial, z);
 
       size_t idx = y * frame_width + x;
-      float mag = (float)cabsl(result);
-      float arg = (float)cargl(result);
+      float mag = (float)cxabsl(result);
+      float arg = (float)cxargl(result);
       if (!isfinite(mag)) mag = FLT_MAX;
 
       mags[idx] = mag;
@@ -91,7 +91,7 @@ void render_frame_cpu(void) {
 }
 
 // cpu rendering of point cloud
-void render_point_cloud_cpu(complex long double *roots, const size_t *num_distinct,
+void render_point_cloud_cpu(cxldouble *roots, const size_t *num_distinct,
                             size_t num_perms, size_t stride, float point_radius,
                             float scale, float x_off, float y_off) {
   if (!host_pixels || num_perms == 0 || !roots) return;
@@ -112,8 +112,8 @@ void render_point_cloud_cpu(complex long double *roots, const size_t *num_distin
     float hue = (float)i / (float)num_perms;
     for (size_t j = 0; j < num_distinct[i]; j++) {
       size_t idx = i * stride + j;
-      float rx = (float)creall(roots[idx]);
-      float ry = (float)cimagl(roots[idx]);
+      float rx = (float)cxreall(roots[idx]);
+      float ry = (float)cximagl(roots[idx]);
 
       // convert to screen coordinates
       float sx = (rx - x_off) / scale + (float)frame_width * 0.5f;

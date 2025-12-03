@@ -58,7 +58,7 @@ void SDL_AppQuit(void *s, SDL_AppResult result) {
 
   if (result == SDL_APP_FAILURE) {
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "error",
-                             SDL_GetError(), state ? state->win : nullptr);
+                             SDL_GetError(), state ? state->win : NULL);
   }
 
   if (state) {
