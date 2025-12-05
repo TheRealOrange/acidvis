@@ -548,10 +548,10 @@ polynomial_t *polynomial_deflate(polynomial_t *P, cxldouble root) {
 }
 
 // polish a root using Newton's method on the original unscaled polynomial
-static cxldouble polish_root(polynomial_t *P, cxldouble root) {
+cxldouble polish_root(polynomial_t *P, cxldouble root, int max_iters) {
   cxldouble z = root;
 
-  for (int iter = 0; iter < POLISH_ITERS; iter++) {
+  for (int iter = 0; iter < max_iters; iter++) {
     // evaluate P(z) and P'(z)
     cxldouble p_val = P->coeffs[P->degree];
     cxldouble dp_val = CXL(0.0, 0.0);
@@ -631,8 +631,8 @@ bool polynomial_find_roots_scaled(polynomial_t *poly, cxldouble *roots, size_t *
     cxldouble raw_root = unscale_root(scaled_root, sigma);
 
     // polish the root on the polynomial
-    cxldouble polished_root = polish_root(original, raw_root);
-    cxldouble polished_scaled_root = polish_root(work, scaled_root);
+    cxldouble polished_root = polish_root(original, raw_root, POLISH_ITERS);
+    cxldouble polished_scaled_root = polish_root(work, scaled_root, POLISH_ITERS);
     roots[roots_found++] = polished_root;
 
     // deflate again using the scaled root (more accurate for the scaled polynomial)

@@ -17,8 +17,9 @@
 
 #include "polysolve.h"
 
-#define UPDATE_INTERVAL      64
-#define MAX_JT_ITERS_UPDATE  72
+#define UPDATE_INTERVAL      16
+#define MAX_JT_ITERS_UPDATE  48
+#define INC_POLISH_INTERS    16
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define CEILDIV(a, b) (((a) + (b) - 1) / (b))
@@ -85,6 +86,7 @@ static int process_incremental_single_combination(
   // now roots_out contains the candidate roots for the new polynomial
   // for each root, try to find using just the 3rd stage of jenkins-traub
   polynomial_t *P = polynomial_from_coeffs(curr_coeffs, poly_degree + 1);
+  polynomial_t *original = polynomial_copy(P);
 
   // scale the polynomial (store the scale factor)
   long double sigma = polynomial_scale_for_roots(P);
@@ -113,7 +115,8 @@ static int process_incremental_single_combination(
     jt_status res = iterate_find(H_work, P, work_p, work_h, scaled_search, &scaled_root, MAX_JT_ITERS_UPDATE);
     if (res == JT_CONVERGED) {
       found++;
-      roots_out[i] = unscale_root(scaled_root, sigma);
+      cxldouble polished_root = polish_root(original, unscale_root(scaled_root, sigma), INC_POLISH_INTERS);
+      roots_out[i] = polished_root;
     } else {
       // if there is any error or the root finding fails,
       // return 0 to indicate we want to fallback to full solve or
