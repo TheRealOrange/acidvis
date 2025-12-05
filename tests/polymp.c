@@ -6,7 +6,7 @@
 #include <stdlib.h>
 #include <time.h>
 #include <math.h>
-#include <complex.h>
+#include "compat_complex.h"
 
 #include "polynomial.h"
 #include "util.h"
@@ -23,10 +23,10 @@ static double get_time(void) {
 
 // create a test polynomial of given degree with roots on unit circle
 static polynomial_t *create_test_polynomial(size_t degree) {
-  complex long double *roots = calloc(degree, sizeof(complex long double));
+  cxldouble *roots = calloc(degree, sizeof(cxldouble));
   for (size_t i = 0; i < degree; i++) {
     long double angle = ((long double) i * M_PI * 2.0L) / (long double) degree;
-    roots[i] = cexpl(I * angle);
+    roots[i] = cxexpl(I * angle);
   }
   polynomial_t *p = polynomial_from_roots(roots, degree, false);
   free(roots);
@@ -47,13 +47,13 @@ static void benchmark_combinations(size_t degree, bool use_lapack) {
   printf("batched lapack optimization example\n");
 
   // base coefficients
-  complex long double base_coeffs[3] = {-1.0, 1.5, 1.0};
+  cxldouble base_coeffs[3] = {-1.0, 1.5, 1.0};
 
   printf("number of combinations: %zu\n", num_combinations);
   printf("number of threads: %d\n", get_num_threads());
 
   // Allocate result arrays
-  complex long double *roots = malloc(num_combinations * degree * sizeof(complex long double));
+  cxldouble *roots = malloc(num_combinations * degree * sizeof(cxldouble));
   size_t *num_distinct = malloc(num_combinations * sizeof(size_t));
 
   if (!roots || !num_distinct) {
@@ -129,9 +129,9 @@ static void benchmark_scaling(size_t degree, bool use_lapack) {
   printf("batched lapack optimization example\n");
 
   // base coefficients
-  complex long double base_coeffs[3] = {-1.0, 1.5, 1.0};
+  cxldouble base_coeffs[3] = {-1.0, 1.5, 1.0};
 
-  complex long double *roots = malloc(num_combinations * degree * sizeof(complex long double));
+  cxldouble *roots = malloc(num_combinations * degree * sizeof(cxldouble));
   size_t *num_distinct = malloc(num_combinations * sizeof(size_t));
 
   if (!roots || !num_distinct) {

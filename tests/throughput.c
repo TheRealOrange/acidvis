@@ -5,7 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
-#include <complex.h>
+#include "compat_complex.h"
 
 #include "polynomial.h"
 #include "util.h"
@@ -27,10 +27,10 @@ int main(void) {
   printf("batched lapack optimization example\n");
 
   // base coefficients
-  complex long double base_coeffs[NUM_BASE] = {-1.0, 1.5, 1.0};
+  cxldouble base_coeffs[NUM_BASE] = {-1.0, 1.5, 1.0};
 
   // allocate result arrays
-  complex long double *roots = malloc(num_combinations * degree * sizeof(complex long double));
+  cxldouble *roots = malloc(num_combinations * degree * sizeof(cxldouble));
   size_t *num_distinct = malloc(num_combinations * sizeof(size_t));
 
   if (!roots || !num_distinct) {
@@ -83,8 +83,8 @@ int main(void) {
     printf("  polynomial %zu: found %zu roots\n", i, num_distinct[i]);
     if (num_distinct[i] > 0) {
       printf("    first root: %.6Lf + %.6Lfi\n",
-             creall(roots[i * degree]),
-             cimagl(roots[i * degree]));
+             cxreall(roots[i * degree]),
+             cximagl(roots[i * degree]));
     }
   }
 

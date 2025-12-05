@@ -80,10 +80,10 @@ float anim_map_ease(ease_type_t ease, float t) {
 }
 
 // interpolation fns between points
-complex long double anim_interpolate_complex(complex long double a, complex long double b, float t) {
-  long double re = creall(a) + t * (creall(b) - creall(a));
-  long double im = cimagl(a) + t * (cimagl(b) - cimagl(a));
-  return re + im * I;
+cxldouble anim_interpolate_complex(cxldouble a, cxldouble b, float t) {
+  long double re = cxreall(a) + t * (cxreall(b) - cxreall(a));
+  long double im = cximagl(a) + t * (cximagl(b) - cximagl(a));
+  return CXL(re, im);
 }
 
 anim_view_t anim_interpolate_view(anim_view_t a, anim_view_t b, float t) {
@@ -145,7 +145,7 @@ static bool parse_keyframe(cJSON *kf_json, anim_keyframe_t *kf) {
         double re = cJSON_IsNumber(re_item) ? re_item->valuedouble : 0.0;
         double im = cJSON_IsNumber(im_item) ? im_item->valuedouble : 0.0;
 
-        kf->points[kf->num_points++] = (long double) re + (long double) im * I;
+        kf->points[kf->num_points++] = CXL((long double) re, (long double) im);
       }
     }
   }
@@ -164,20 +164,20 @@ static bool parse_keyframe(cJSON *kf_json, anim_keyframe_t *kf) {
 
 
 anim_script_t *anim_parse_script(const char *json_str) {
-  if (!json_str) return nullptr;
+  if (!json_str) return NULL;
 
   cJSON *root = cJSON_Parse(json_str);
   if (!root) {
     const char *error = cJSON_GetErrorPtr();
     if (error)
       fprintf(stderr, "animation: json parse error near: %s\n", error);
-    return nullptr;
+    return NULL;
   }
 
   anim_script_t *script = calloc(1, sizeof(anim_script_t));
   if (!script) {
     cJSON_Delete(root);
-    return nullptr;
+    return NULL;
   }
 
   // desired mode, either point cloud mode or single polynomial roots mode
@@ -198,7 +198,7 @@ anim_script_t *anim_parse_script(const char *json_str) {
     fprintf(stderr, "animation: missing or invalid keyframes array\n");
     free(script);
     cJSON_Delete(root);
-    return nullptr;
+    return NULL;
   }
 
   script->num_keyframes = 0;
@@ -215,7 +215,7 @@ anim_script_t *anim_parse_script(const char *json_str) {
     fprintf(stderr, "animation: no valid keyframes found\n");
     free(script);
     cJSON_Delete(root);
-    return nullptr;
+    return NULL;
   }
 
   // validate keyframe times are monotonically increasing
@@ -225,7 +225,7 @@ anim_script_t *anim_parse_script(const char *json_str) {
               i, script->keyframes[i].time, i - 1, script->keyframes[i - 1].time);
       free(script);
       cJSON_Delete(root);
-      return nullptr;
+      return NULL;
     }
   }
 
@@ -258,7 +258,7 @@ anim_script_t *anim_load_script(const char *filename) {
   FILE *f = fopen(filename, "rb");
   if (!f) {
     fprintf(stderr, "animation: failed to open %s\n", filename);
-    return nullptr;
+    return NULL;
   }
 
   fseek(f, 0, SEEK_END);
@@ -268,20 +268,20 @@ anim_script_t *anim_load_script(const char *filename) {
   if (size <= 0 || size > 1024 * 1024) {
     fprintf(stderr, "animation: invalid file size\n");
     fclose(f);
-    return nullptr;
+    return NULL;
   }
 
   char *json_str = malloc(size + 1);
   if (!json_str) {
     fclose(f);
-    return nullptr;
+    return NULL;
   }
 
   if (fread(json_str, 1, size, f) != (size_t) size) {
     fprintf(stderr, "animation: failed to read file\n");
     free(json_str);
     fclose(f);
-    return nullptr;
+    return NULL;
   }
   json_str[size] = '\0';
   fclose(f);
@@ -296,10 +296,10 @@ void anim_free_script(anim_script_t *script) {
 }
 
 anim_state_t *anim_create_state(anim_script_t *script) {
-  if (!script) return nullptr;
+  if (!script) return NULL;
 
   anim_state_t *state = calloc(1, sizeof(anim_state_t));
-  if (!state) return nullptr;
+  if (!state) return NULL;
 
   state->script = script;
   state->current_time = 0.0f;
@@ -313,7 +313,7 @@ anim_state_t *anim_create_state(anim_script_t *script) {
     anim_keyframe_t *first = &script->keyframes[0];
     if (first->points_valid) {
       state->num_points = first->num_points;
-      memcpy(state->points, first->points, first->num_points * sizeof(complex long double));
+      memcpy(state->points, first->points, first->num_points * sizeof(cxldouble));
     }
     if (first->view_valid) {
       state->view = first->view;
@@ -443,7 +443,7 @@ bool anim_update(anim_state_t *state, float delta_time) {
     anim_keyframe_t *kf = &script->keyframes[prev_pts];
     if (kf->points_valid) {
       state->num_points = kf->num_points;
-      memcpy(state->points, kf->points, kf->num_points * sizeof(complex long double));
+      memcpy(state->points, kf->points, kf->num_points * sizeof(cxldouble));
     }
   } else {
     anim_keyframe_t *kf_a = &script->keyframes[prev_pts];

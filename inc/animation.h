@@ -5,7 +5,7 @@
 #ifndef POLYNOMIAL_ANIMATION_H
 #define POLYNOMIAL_ANIMATION_H
 
-#include <complex.h>
+#include "compat_complex.h"
 #include <stdbool.h>
 #include <stddef.h>
 
@@ -37,7 +37,7 @@ typedef struct {
 // single keyframe in an animation
 typedef struct {
   float time;                                    // time in seconds
-  complex long double points[ANIM_MAX_POINTS];   // coefficient or root positions
+  cxldouble points[ANIM_MAX_POINTS];   // coefficient or root positions
   size_t num_points;                             // how many points defined
   bool points_valid;                             // whether points are specified
 
@@ -78,7 +78,7 @@ typedef struct {
   size_t current_keyframe;
 
   // interpolated output
-  complex long double points[ANIM_MAX_POINTS];
+  cxldouble points[ANIM_MAX_POINTS];
   size_t num_points;
   anim_view_t view;
   bool view_changed;                             // true if view updated this frame
@@ -105,7 +105,7 @@ void anim_free_state(anim_state_t *state);
 ease_type_t anim_ease_from_string(const char *name);
 const char *anim_ease_to_string(ease_type_t ease);
 float anim_map_ease(ease_type_t ease, float t);
-complex long double anim_interpolate_complex(complex long double a, complex long double b, float t);
+cxldouble anim_interpolate_complex(cxldouble a, cxldouble b, float t);
 anim_view_t anim_interpolate_view(anim_view_t a, anim_view_t b, float t);
 
 #endif //POLYNOMIAL_ANIMATION_H
