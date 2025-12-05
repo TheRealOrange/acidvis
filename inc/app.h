@@ -9,6 +9,7 @@
 #include "compat_complex.h"
 
 #include "animation.h"
+#include "combination.h"
 #include "polynomial.h"
 
 #define MAX_DEGREE 26
@@ -62,6 +63,7 @@ typedef struct {
   // caching for incremental solving during drag
   cxldouble *prev_base_coeffs;  // previous coefficients for delta computation
   int *since_last_update;       // tracks when each combination was last fully solved
+  solve_stats_t solve_stats;    // stats from last solve
 
   // drag state
   DragMode drag_mode;

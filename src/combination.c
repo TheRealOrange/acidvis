@@ -17,8 +17,8 @@
 
 #include "polysolve.h"
 
-#define UPDATE_INTERVAL      16
-#define MAX_JT_ITERS_UPDATE  128
+#define UPDATE_INTERVAL      48
+#define MAX_JT_ITERS_UPDATE  72
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
 #define CEILDIV(a, b) (((a) + (b) - 1) / (b))
@@ -264,7 +264,7 @@ static size_t process_single_combination(
   return num_distinct;
 }
 
-// simple non-cached version for full solves
+// non-cached version for full solves
 // skip parameter: if > 1, only compute every skip-th combination
 // skipped combinations have combination_valid[i] = false
 size_t polynomial_find_root_combinations(
@@ -276,7 +276,8 @@ size_t polynomial_find_root_combinations(
     int *since_last_update,
     size_t num_combinations,
     size_t skip,
-    bool use_lapack) {
+    bool use_lapack,
+    solve_stats_t *stats) {
 
   for (size_t i = 0; i < num_combinations; i++) {
     since_last_update[i] = -1;  // force full solve
@@ -286,7 +287,7 @@ size_t polynomial_find_root_combinations(
     base_coeffs, NULL,
     num_base_coeffs, poly_degree,
     roots, combination_valid, since_last_update,
-    num_combinations, skip, use_lapack
+    num_combinations, skip, use_lapack, stats
   );
   return result;
 }
@@ -303,7 +304,8 @@ size_t polynomial_find_root_combinations_cached(
     bool *combination_valid,
     int *since_last_update,
     size_t num_combinations,
-    size_t skip, bool use_lapack) {
+    size_t skip, bool use_lapack,
+    solve_stats_t *stats) {
 
   bool incremental = true;
   if (!base_coeffs || num_base_coeffs == 0 || poly_degree == 0 || !roots || !combination_valid) {
@@ -334,13 +336,14 @@ size_t polynomial_find_root_combinations_cached(
   }
 
   size_t total_roots = 0;
-  int num_fullsolve = 0;
-  int num_incremental = 0;
+  size_t num_fullsolve = 0;
+  size_t num_incremental = 0;
+  size_t num_incremental_failed = 0;
 
   // find out how many we need to fullsolve vs incremental solve
   for (size_t i = 0; i < num_combinations; i++) {
     if (i % skip == 0) {
-      if (true || since_last_update[i] > UPDATE_INTERVAL || !incremental) {
+      if (since_last_update[i] > UPDATE_INTERVAL || !incremental) {
         // need to fullsolve either because
         // it is too long since last update or
         // we are not requesting an incremental solve
@@ -452,16 +455,19 @@ size_t polynomial_find_root_combinations_cached(
 #endif
 
   // assign those with incomplete/no roots found back to fullsolve
+  size_t num_incremental_success = 0;
   for (size_t i = 0; i < num_incremental; i++) {
     if (roots_found_incremental[i] == poly_degree) {
       combination_valid[incremental_idxes[i]] = true;
       total_roots += poly_degree;
+      num_incremental_success++;
     } else {
       // do not update since_last_solve here because we
       // want to maintain the staggered order
       fullsolve_idxes[num_fullsolve] = incremental_idxes[i];
       combination_valid[incremental_idxes[i]] = false;
       num_fullsolve++;
+      num_incremental_failed++;
     }
   }
 
@@ -542,6 +548,13 @@ size_t polynomial_find_root_combinations_cached(
   }
 
   free(fullsolve_idxes);
+
+  // populate stats if requested
+  if (stats) {
+    stats->num_incremental = num_incremental_success;
+    stats->num_fullsolve = num_fullsolve;
+    stats->num_incremental_failed = num_incremental_failed;
+  }
 
   return total_roots;
 }

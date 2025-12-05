@@ -1,6 +1,6 @@
 {
   "mode": "cloud",
-  "degree": 8,
+  "degree": 9,
   "num_coeffs": 3,
   "loop": true,
   "loop_delay": 0.0,

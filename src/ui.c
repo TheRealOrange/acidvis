@@ -160,6 +160,18 @@ void ui_render_info_overlay(AppState *state) {
         status,
         state->anim_script->loop ? " [loop]" : "");
   }
+
+  // show solve stats during animation or coefficient dragging in cloud mode
+  bool show_solve_stats = (state->anim_active && state->view_mode == VIEW_MODE_POINT_CLOUD) ||
+                          (state->drag_mode == DRAG_COEFF && state->view_mode == VIEW_MODE_POINT_CLOUD);
+  if (show_solve_stats) {
+    int y_pos = (state->anim_active && state->anim_state) ? 85 : 70;
+    SDL_RenderDebugTextFormat(state->ren, 5, y_pos,
+        "solver: incr %zu  full %zu  (failed %zu)",
+        state->solve_stats.num_incremental,
+        state->solve_stats.num_fullsolve,
+        state->solve_stats.num_incremental_failed);
+  }
 }
 
 // render coefficient/root point markers

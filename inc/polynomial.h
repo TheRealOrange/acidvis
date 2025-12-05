@@ -12,7 +12,7 @@
 
 typedef struct polynomial polynomial_t;
 
-#define MAX_BATCH_SIZE   8192
+#define MAX_BATCH_SIZE   16384
 
 struct polynomial {
   size_t degree;

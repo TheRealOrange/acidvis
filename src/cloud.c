@@ -98,7 +98,7 @@ void cloud_update(AppState *state, size_t skip) {
     state->base_coeffs, state->num_base_coeffs, state->poly_degree_cloud,
     state->combination_roots, state->combination_valid,
     state->since_last_update, state->num_combinations,
-    skip, use_lapack
+    skip, use_lapack, &state->solve_stats
   );
 
   // save current coefficients for incremental solving
@@ -134,7 +134,7 @@ void cloud_update_incremental(AppState *state, size_t skip) {
     state->num_base_coeffs, state->poly_degree_cloud,
     state->combination_roots, state->combination_valid,
     state->since_last_update, state->num_combinations,
-    skip, use_lapack
+    skip, use_lapack, &state->solve_stats
   );
 
   // save current coefficients for next incremental solve
