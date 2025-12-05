@@ -239,7 +239,6 @@ void atomicAdd_f(volatile __global float *addr, const float val) {
       unsigned int u;
       float f;
   } oldVal, newVal;
-  int accepted = 0;
 
   // Read the current value as an integer bit pattern
   oldVal.f = *addr;
@@ -265,7 +264,7 @@ __kernel void render_point_cloud(
     __global int* point_cnt,
     __global const float* roots_real,
     __global const float* roots_imag,
-    __global const int* num_distinct,
+    __global const bool* valid,
     const int num_perms,
     const int stride,
     const int frame_width,
@@ -277,11 +276,12 @@ __kernel void render_point_cloud(
 ) {
   int perm_idx = get_global_id(0);
   if (perm_idx >= num_perms) return;
+  if (!valid[perm_idx]) return;
 
   int ir = (int)(point_radius + 0.5f);
   float r2 = point_radius * point_radius;
 
-  for (int j = 0; j < num_distinct[perm_idx]; j++) {
+  for (int j = 0; j < stride; j++) {
     int root_idx = perm_idx * stride + j;
 
     float root_re = roots_real[root_idx];
@@ -359,7 +359,6 @@ __kernel void render_point_cloud_hue(
   }
 
   float2 hue_vec = (float2)((float) hue_ind[idx * 2], (float) hue_ind[idx * 2 + 1]);
-  float mag = length(hue_vec);
   float angle = atan2(hue_vec.y, hue_vec.x);
 
   float hue = (angle + M_PI_F) / (2.0f * M_PI_F);

@@ -174,7 +174,7 @@ polynomial_t *polynomial_from_dis_roots(cxldouble *distinct_roots, size_t *mult,
   return poly;
 }
 
-polynomial_t *polynomial_from_coeffs(cxldouble *coeffs, size_t num_coeffs) {
+polynomial_t *polynomial_from_coeffs(const cxldouble *coeffs, size_t num_coeffs) {
   if (!coeffs || num_coeffs < 1) return NULL;
 
   // assuming number of coefficients-1 is the degree
@@ -225,7 +225,7 @@ cxldouble polynomial_eval(polynomial_t *poly, cxldouble z) {
 }
 
 // find roots using the scaled Jenkins-Traub algorithm
-bool polynomial_find_roots(polynomial_t *poly) {
+bool polynomial_find_roots(polynomial_t *poly, bool dedup) {
   if (!poly || !poly->coeffs_valid || poly->degree == 0) return false;
 
   cxldouble *roots = malloc(poly->degree * sizeof(cxldouble));
@@ -236,7 +236,7 @@ bool polynomial_find_roots(polynomial_t *poly) {
 
   if (success && num_roots > 0) {
     // use constructor to deduplicate roots
-    polynomial_t *temp = polynomial_from_roots(roots, num_roots, true);
+    polynomial_t *temp = polynomial_from_roots(roots, num_roots, dedup);
     if (temp) {
       // copy deduplicated roots and multiplicities
       memcpy(poly->roots, temp->roots, temp->num_distinct_roots * sizeof(cxldouble));

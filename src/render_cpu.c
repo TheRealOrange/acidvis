@@ -91,7 +91,7 @@ void render_frame_cpu(void) {
 }
 
 // cpu rendering of point cloud
-void render_point_cloud_cpu(cxldouble *roots, const size_t *num_distinct,
+void render_point_cloud_cpu(cxldouble *roots, const bool *valid,
                             size_t num_perms, size_t stride, float point_radius,
                             float scale, float x_off, float y_off) {
   if (!host_pixels || num_perms == 0 || !roots) return;
@@ -110,7 +110,8 @@ void render_point_cloud_cpu(cxldouble *roots, const size_t *num_distinct,
   // accumulate hue values for each point
   for (size_t i = 0; i < num_perms; i++) {
     float hue = (float)i / (float)num_perms;
-    for (size_t j = 0; j < num_distinct[i]; j++) {
+    if (!valid[i]) continue;
+    for (size_t j = 0; j < stride; j++) {
       size_t idx = i * stride + j;
       float rx = (float)cxreall(roots[idx]);
       float ry = (float)cximagl(roots[idx]);

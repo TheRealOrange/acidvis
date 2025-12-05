@@ -363,7 +363,7 @@ static int complex_compare_d(const void *a, const void *b) {
   return (imag_diff > 0) - (imag_diff < 0);
 }
 
-bool polynomial_find_roots_companion(polynomial_t *poly) {
+bool polynomial_find_roots_companion(polynomial_t *poly,  bool dedup) {
   if (!poly || !poly->coeffs_valid || poly->degree == 0) {
     return false;
   }
@@ -379,28 +379,37 @@ bool polynomial_find_roots_companion(polynomial_t *poly) {
     return false;
   }
 
-  // Sort roots for deduplication
-  qsort(raw_roots, num_roots, sizeof(cxldouble), complex_compare_d);
+  if (dedup) {
+    // Sort roots for deduplication
+    qsort(raw_roots, num_roots, sizeof(cxldouble), complex_compare_d);
 
-  // Deduplicate and compute multiplicities
-  size_t distinct_count = 0;
-  cxldouble prev_root = CXL(0.0, 0.0);
+    // Deduplicate and compute multiplicities
+    size_t distinct_count = 0;
+    cxldouble prev_root = CXL(0.0, 0.0);
 
-  for (size_t i = 0; i < num_roots; i++) {
-    if (distinct_count == 0 ||
-        !complex_approx_equal_d(cxl_to_cx(raw_roots[i]), cxl_to_cx(prev_root))) {
-      // New distinct root
-      poly->roots[distinct_count] = raw_roots[i];
-      poly->multiplicity[distinct_count] = 1;
-      prev_root = raw_roots[i];
-      distinct_count++;
-    } else {
-      // Repeated root - increment multiplicity
-      poly->multiplicity[distinct_count - 1]++;
+    for (size_t i = 0; i < num_roots; i++) {
+      if (distinct_count == 0 ||
+          !complex_approx_equal_d(cxl_to_cx(raw_roots[i]), cxl_to_cx(prev_root))) {
+        // New distinct root
+        poly->roots[distinct_count] = raw_roots[i];
+        poly->multiplicity[distinct_count] = 1;
+        prev_root = raw_roots[i];
+        distinct_count++;
+          } else {
+            // Repeated root - increment multiplicity
+            poly->multiplicity[distinct_count - 1]++;
+          }
     }
-  }
 
-  poly->num_distinct_roots = distinct_count;
+    poly->num_distinct_roots = distinct_count;
+  } else {
+    for (size_t i = 0; i < num_roots; i++) {
+      poly->roots[i] = raw_roots[i];
+      poly->multiplicity[i] = 1;
+    }
+    poly->num_distinct_roots = num_roots;
+  }
+  
   poly->roots_valid = true;
 
   free(raw_roots);

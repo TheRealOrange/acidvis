@@ -54,10 +54,14 @@ typedef struct {
 
   // combination cloud roots
   cxldouble *combination_roots;
-  size_t *num_distinct;
+  bool *combination_valid;
   size_t comb_roots_stride;
   size_t num_combinations;  // N^(M+1)
   size_t found_roots;
+
+  // caching for incremental solving during drag
+  cxldouble *prev_base_coeffs;  // previous coefficients for delta computation
+  int *since_last_update;       // tracks when each combination was last fully solved
 
   // drag state
   DragMode drag_mode;

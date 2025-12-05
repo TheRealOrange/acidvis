@@ -23,5 +23,9 @@ long double cauchy_bound(polynomial_t *P);
 jt_status find_next_root(polynomial_t *P, cxldouble *root_out);
 bool polynomial_find_roots_scaled(polynomial_t *poly, cxldouble *roots, size_t *num_roots);
 polynomial_t *polynomial_deflate(polynomial_t *P, cxldouble root);
+jt_status iterate_find(polynomial_t *H, polynomial_t *P, cxldouble *work_p, cxldouble *work_h, cxldouble candidate_shift, cxldouble *root_out, size_t max_iters);
+
+long double polynomial_scale_for_roots(polynomial_t *P);
+cxldouble unscale_root(const cxldouble scaled_root, const long double sigma);
 
 #endif //POLYNOMIAL_POLYSOLVE_H

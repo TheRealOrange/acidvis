@@ -212,7 +212,7 @@ long double polynomial_scale_for_roots(polynomial_t *P) {
 
 // unscale a root found from scaled polynomial
 // if we found root r from scaled polynomial, actual root is sigma * r
-static cxldouble unscale_root(const cxldouble scaled_root, const long double sigma) {
+cxldouble unscale_root(const cxldouble scaled_root, const long double sigma) {
   return cxscalel(scaled_root, sigma);
 }
 
@@ -426,67 +426,18 @@ jt_status find_next_root(polynomial_t *P, cxldouble *root_out) {
     }
     if (!H) continue;
 
-    h_zero_count = 0;
-    cxldouble s_new = s;
-    int stagnant_count = 0;
-    long double prev_delta = INFINITY;
-    for (int i = 0; i < MAX_STAGE3; i++) {
-      polynomial_t *H_new;
-      jt_status st = H_norm_next(H, P, work_p, work_h, s, &s_new, &H_new);
-
-      if (st == JT_CONVERGED) {
-        *root_out = s;
-        polynomial_free(H);
-        free(work_p);
-        free(work_h);
-        return JT_OK;
-      }
-
-      if (st == JT_H_ZERO) {
-        // perturb and retry
-        cxldouble perturb = cxscalel(cxexpl(CXL(0, (long double)h_zero_count)), 0.001L);
-        s = cxaddl(cxscalel(s, 1.001L), perturb);
-        h_zero_count++;
-        if (h_zero_count > 5) break;  // give up on this starting point
-        continue;
-      }
-
-      if (st == JT_ERROR) break;
-      if (H_new) {
-        polynomial_free(H);
-        H = H_new;
-      }
-
-      // check convergence
-      long double delta = cxabsl(cxsubl(s_new, s));
-      if (delta < REL_EPSILON * fmaxl(1.0L, cxabsl(s_new))) {
-        // verify it's actually a root
-        cxldouble p_val = polynomial_eval(P, s_new);
-        long double p_scale = 0;
-        for (size_t j = 0; j <= P->degree; j++) {
-          long double m = cxabsl(P->coeffs[j]);
-          if (m > p_scale) p_scale = m;
-        }
-        long double p_tol = JT_EPSILON * p_scale * (long double)P->degree;
-        if (cxabsl(p_val) < p_tol) {
-          *root_out = s_new;
-          polynomial_free(H);
-          free(work_p);
-          free(work_h);
-          return JT_OK;
-        }
-      }
-
-      if (delta >= prev_delta) {
-        stagnant_count++;
-      } else {
-        stagnant_count = 0;
-      }
-
-      if (stagnant_count > 20) break;  // Not converging, try new starting point
-
-      prev_delta = delta;
-      s = s_new;
+    // stage 3 search
+    jt_status res = iterate_find(H, P, work_p, work_h, s, root_out, MAX_STAGE3);
+    if (res == JT_CONVERGED) {
+      free(work_p);
+      free(work_h);
+      return JT_OK;
+    } else if (res == JT_ERROR) {
+      free(work_p);
+      free(work_h);
+      return JT_ERROR;
+    } else if (res == JT_H_ZERO) {
+      // retry with different starting point
     }
 
     polynomial_free(H);
@@ -495,6 +446,76 @@ jt_status find_next_root(polynomial_t *P, cxldouble *root_out) {
   free(work_p);
   free(work_h);
   return JT_ERROR; // failed to find next root
+}
+
+jt_status iterate_find(polynomial_t *H, polynomial_t *P, cxldouble *work_p, cxldouble *work_h, cxldouble candidate_shift, cxldouble *root_out, size_t max_iters) {
+  int h_zero_count = 0;
+  cxldouble s_new = candidate_shift;
+  cxldouble s = candidate_shift;
+  int stagnant_count = 0;
+  long double prev_delta = INFINITY;
+  for (int i = 0; i < max_iters; i++) {
+    polynomial_t *H_new;
+    jt_status st = H_norm_next(H, P, work_p, work_h, s, &s_new, &H_new);
+
+    if (st == JT_CONVERGED) {
+      *root_out = s;
+      polynomial_free(H);
+      return JT_CONVERGED;
+    }
+
+    if (st == JT_H_ZERO) {
+      // perturb and retry
+      cxldouble perturb = cxscalel(cxexpl(CXL(0, (long double)h_zero_count)), 0.001L);
+      s = cxaddl(cxscalel(s, 1.001L), perturb);
+      h_zero_count++;
+      if (h_zero_count > 10) {
+        polynomial_free(H);
+        return JT_H_ZERO;  // give up on this starting point
+      }
+      continue;
+    }
+
+    if (st == JT_ERROR) return JT_ERROR;
+    if (H_new) {
+      polynomial_free(H);
+      H = H_new;
+    }
+
+    // check convergence
+    long double delta = cxabsl(cxsubl(s_new, s));
+    if (delta < REL_EPSILON * fmaxl(1.0L, cxabsl(s_new))) {
+      // verify it's actually a root
+      cxldouble p_val = polynomial_eval(P, s_new);
+      long double p_scale = 0;
+      for (size_t j = 0; j <= P->degree; j++) {
+        long double m = cxabsl(P->coeffs[j]);
+        if (m > p_scale) p_scale = m;
+      }
+      long double p_tol = JT_EPSILON * p_scale * (long double)P->degree;
+      if (cxabsl(p_val) < p_tol) {
+        *root_out = s_new;
+        polynomial_free(H);
+        return JT_CONVERGED;
+      }
+    }
+
+    if (delta >= prev_delta) {
+      stagnant_count++;
+    } else {
+      stagnant_count = 0;
+    }
+
+    if (stagnant_count > 30) {
+      polynomial_free(H);
+      return JT_OK;  // Not converging, try new starting point
+    }
+
+    prev_delta = delta;
+    s = s_new;
+  }
+
+  return JT_OK;
 }
 
 // use horner's method to deflate polynomial

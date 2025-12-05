@@ -260,36 +260,26 @@ static SDL_AppResult handle_key_down(AppState *state, SDL_Event *event) {
         }
       } else {
         float g = get_gamma();
-        set_gamma(g - (g > 0.05f ? 0.05f : 0.0f));
+        set_gamma(g - (g > 0.1f ? 0.05f : 0.0f));
       }
       state->needs_redraw = true;
       break;
 
     case SCANCODE_ANIM_PLAY:
-      if (state->anim_state) {
-        bool playing = !state->anim_state->playing;
-        anim_set_playing(state->anim_state, playing);
+      if (state->anim_active && state->anim_state) {
+        if (state->anim_state->finished) {
+          anim_reset(state->anim_state);
+        }
+        state->anim_state->playing = !state->anim_state->playing;
         state->anim_last_tick = SDL_GetTicks();
         state->needs_redraw = true;
       }
       break;
 
     case SCANCODE_ANIM_RESET:
-      if (state->anim_state) {
+      if (state->anim_active && state->anim_state) {
         anim_reset(state->anim_state);
-        anim_update(state->anim_state, 0.0f);
-
-        if (state->view_mode == VIEW_MODE_POINT_CLOUD) {
-          for (size_t i = 0; i < state->anim_state->num_points && i < state->num_base_coeffs; i++) {
-            state->base_coeffs[i] = state->anim_state->points[i];
-          }
-          cloud_update(state, 1);
-        } else if (state->poly && state->poly->roots_valid) {
-          for (size_t i = 0; i < state->anim_state->num_points && i < state->poly->num_distinct_roots; i++) {
-            state->poly->roots[i] = state->anim_state->points[i];
-          }
-          app_rebuild_from_roots(state);
-        }
+        state->anim_last_tick = SDL_GetTicks();
         state->needs_redraw = true;
       }
       break;
@@ -370,7 +360,7 @@ static void handle_mouse_up(AppState *state, SDL_Event *event) {
     // full recalculation after drag ends
     if (was_dragging_coeff_cloud) {
       state->drag_skip = 1;
-      cloud_update(state, 1);
+      cloud_update_drag_end(state);
       state->needs_redraw = true;
     }
   }
@@ -407,7 +397,8 @@ static void handle_mouse_motion(AppState *state, SDL_Event *event) {
         skip = (state->num_combinations + DRAG_RENDER_POINTS - 1) / DRAG_RENDER_POINTS;
       }
       state->drag_skip = skip;
-      cloud_update(state, skip);
+      // use incremental solver during drag
+      cloud_update_drag(state, skip);
     } else {
       state->poly->coeffs[state->drag_index] = CXL(cx, cy);
       app_rebuild_from_coeffs(state);

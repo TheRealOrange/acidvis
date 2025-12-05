@@ -39,12 +39,12 @@ static cl_mem d_buffer_partial_max = NULL;
 static cl_mem d_buffer_final_max = NULL;
 
 // point cloud buffers
-static cl_mem d_perm_roots_real = NULL;
-static cl_mem d_perm_roots_imag = NULL;
-static cl_mem d_perm_distinct = NULL;
-static cl_mem d_perm_roots_hue_ind = NULL;
-static cl_mem d_perm_roots_count = NULL;
-static size_t d_perms_capacity = 0;
+static cl_mem d_comb_roots_real = NULL;
+static cl_mem d_comb_roots_imag = NULL;
+static cl_mem d_comb_valid = NULL;
+static cl_mem d_comb_roots_hue_ind = NULL;
+static cl_mem d_comb_roots_count = NULL;
+static size_t d_comb_capacity = 0;
 
 // reduction workgroup settings
 static size_t reduction_workgroup_size = 256;
@@ -194,11 +194,11 @@ void render_gpu_cleanup(void) {
   if (d_poly_coeff_imag) clReleaseMemObject(d_poly_coeff_imag);
   if (d_buffer_partial_max) clReleaseMemObject(d_buffer_partial_max);
   if (d_buffer_final_max) clReleaseMemObject(d_buffer_final_max);
-  if (d_perm_roots_real) clReleaseMemObject(d_perm_roots_real);
-  if (d_perm_roots_imag) clReleaseMemObject(d_perm_roots_imag);
-  if (d_perm_distinct) clReleaseMemObject(d_perm_distinct);
-  if (d_perm_roots_hue_ind) clReleaseMemObject(d_perm_roots_hue_ind);
-  if (d_perm_roots_count) clReleaseMemObject(d_perm_roots_count);
+  if (d_comb_roots_real) clReleaseMemObject(d_comb_roots_real);
+  if (d_comb_roots_imag) clReleaseMemObject(d_comb_roots_imag);
+  if (d_comb_valid) clReleaseMemObject(d_comb_valid);
+  if (d_comb_roots_hue_ind) clReleaseMemObject(d_comb_roots_hue_ind);
+  if (d_comb_roots_count) clReleaseMemObject(d_comb_roots_count);
 }
 
 void render_gpu_resize_buffers(int width, int height) {
@@ -208,8 +208,8 @@ void render_gpu_resize_buffers(int width, int height) {
   if (d_buffer_imag) clReleaseMemObject(d_buffer_imag);
   if (d_buffer_output_frame) clReleaseMemObject(d_buffer_output_frame);
   if (d_buffer_partial_max) clReleaseMemObject(d_buffer_partial_max);
-  if (d_perm_roots_hue_ind) clReleaseMemObject(d_perm_roots_hue_ind);
-  if (d_perm_roots_count) clReleaseMemObject(d_perm_roots_count);
+  if (d_comb_roots_hue_ind) clReleaseMemObject(d_comb_roots_hue_ind);
+  if (d_comb_roots_count) clReleaseMemObject(d_comb_roots_count);
 
   d_buffer_real = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                  total_pixels * sizeof(float), NULL, &err);
@@ -241,14 +241,14 @@ void render_gpu_resize_buffers(int width, int height) {
     return;
   }
 
-  d_perm_roots_hue_ind = clCreateBuffer(context, CL_MEM_READ_WRITE,
+  d_comb_roots_hue_ind = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                         total_pixels * 2 * sizeof(cl_float), NULL, &err);
   if (err != CL_SUCCESS) {
     SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to create hue index buffer");
     return;
   }
 
-  d_perm_roots_count = clCreateBuffer(context, CL_MEM_READ_WRITE,
+  d_comb_roots_count = clCreateBuffer(context, CL_MEM_READ_WRITE,
                                       total_pixels * sizeof(cl_int), NULL, &err);
   if (err != CL_SUCCESS) {
     SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to create hue count buffer");
@@ -408,7 +408,7 @@ void render_frame_gpu(void) {
   }
 }
 
-void render_point_cloud_gpu(cxldouble *roots, const size_t *num_distinct,
+void render_point_cloud_gpu(cxldouble *roots, const bool *valid,
                             size_t num_perms, size_t stride, float point_radius,
                             float scale, float x_off, float y_off) {
   if (!gpu_initialized || num_perms == 0 || !roots) return;
@@ -426,39 +426,39 @@ void render_point_cloud_gpu(cxldouble *roots, const size_t *num_distinct,
 
   // reallocate buffers if needed
   size_t total_roots = num_perms * stride;
-  if (total_roots > d_perms_capacity) {
-    if (d_perm_roots_real) clReleaseMemObject(d_perm_roots_real);
-    if (d_perm_roots_imag) clReleaseMemObject(d_perm_roots_imag);
-    if (d_perm_distinct) clReleaseMemObject(d_perm_distinct);
+  if (total_roots > d_comb_capacity) {
+    if (d_comb_roots_real) clReleaseMemObject(d_comb_roots_real);
+    if (d_comb_roots_imag) clReleaseMemObject(d_comb_roots_imag);
+    if (d_comb_valid) clReleaseMemObject(d_comb_valid);
 
-    d_perm_roots_real = clCreateBuffer(context, CL_MEM_READ_ONLY,
+    d_comb_roots_real = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                        total_roots * sizeof(cl_float), NULL, &err);
     if (err != CL_SUCCESS) {
       SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to create perm roots real buffer");
       return;
     }
 
-    d_perm_roots_imag = clCreateBuffer(context, CL_MEM_READ_ONLY,
+    d_comb_roots_imag = clCreateBuffer(context, CL_MEM_READ_ONLY,
                                        total_roots * sizeof(cl_float), NULL, &err);
     if (err != CL_SUCCESS) {
       SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to create perm roots imag buffer");
       return;
     }
 
-    d_perm_distinct = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                     num_perms * sizeof(cl_int), NULL, &err);
+    d_comb_valid = clCreateBuffer(context, CL_MEM_READ_ONLY,
+                                     num_perms * sizeof(cl_bool), NULL, &err);
     if (err != CL_SUCCESS) {
-      SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to create perm num distinct buffer");
+      SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to create perm comb_valid buffer");
       return;
     }
 
-    d_perms_capacity = total_roots;
+    d_comb_capacity = total_roots;
   }
 
   // upload root data
   cl_float *roots_real = malloc(total_roots * sizeof(cl_float));
   cl_float *roots_imag = malloc(total_roots * sizeof(cl_float));
-  cl_int *distinct_roots = malloc(num_perms * sizeof(cl_int));
+  cl_bool *valid_roots = malloc(num_perms * sizeof(cl_bool));
 
   for (size_t i = 0; i < total_roots; i++) {
     roots_real[i] = (cl_float)cxreall(roots[i]);
@@ -466,25 +466,25 @@ void render_point_cloud_gpu(cxldouble *roots, const size_t *num_distinct,
   }
 
   for (size_t i = 0; i < num_perms; i++) {
-    distinct_roots[i] = (cl_int)num_distinct[i];
+    valid_roots[i] = (cl_bool)valid[i];
   }
 
-  err = clEnqueueWriteBuffer(queue, d_perm_roots_real, CL_FALSE, 0,
+  err = clEnqueueWriteBuffer(queue, d_comb_roots_real, CL_FALSE, 0,
                              total_roots * sizeof(cl_float), roots_real, 0, NULL, NULL);
   if (err != CL_SUCCESS) {
     SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to write perm roots real buffer");
     goto cleanup;
   }
 
-  err = clEnqueueWriteBuffer(queue, d_perm_roots_imag, CL_FALSE, 0,
+  err = clEnqueueWriteBuffer(queue, d_comb_roots_imag, CL_FALSE, 0,
                              total_roots * sizeof(cl_float), roots_imag, 0, NULL, NULL);
   if (err != CL_SUCCESS) {
     SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to write perm roots imag buffer");
     goto cleanup;
   }
 
-  err = clEnqueueWriteBuffer(queue, d_perm_distinct, CL_FALSE, 0,
-                             num_perms * sizeof(cl_int), distinct_roots, 0, NULL, NULL);
+  err = clEnqueueWriteBuffer(queue, d_comb_valid, CL_FALSE, 0,
+                             num_perms * sizeof(cl_bool), valid_roots, 0, NULL, NULL);
   if (err != CL_SUCCESS) {
     SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to write perm num distinct buffer");
     goto cleanup;
@@ -507,8 +507,8 @@ void render_point_cloud_gpu(cxldouble *roots, const size_t *num_distinct,
   size_t global_work_size_2d[2] = {frame_width, frame_height};
 
   // clear hue accumulator
-  clSetKernelArg(kernel_clear_hue, 0, sizeof(cl_mem), &d_perm_roots_hue_ind);
-  clSetKernelArg(kernel_clear_hue, 1, sizeof(cl_mem), &d_perm_roots_count);
+  clSetKernelArg(kernel_clear_hue, 0, sizeof(cl_mem), &d_comb_roots_hue_ind);
+  clSetKernelArg(kernel_clear_hue, 1, sizeof(cl_mem), &d_comb_roots_count);
   clSetKernelArg(kernel_clear_hue, 2, sizeof(cl_int), &fw);
   clSetKernelArg(kernel_clear_hue, 3, sizeof(cl_int), &fh);
 
@@ -520,11 +520,11 @@ void render_point_cloud_gpu(cxldouble *roots, const size_t *num_distinct,
   }
 
   // render points to hue accumulator
-  clSetKernelArg(kernel_point_cloud, 0, sizeof(cl_mem), &d_perm_roots_hue_ind);
-  clSetKernelArg(kernel_point_cloud, 1, sizeof(cl_mem), &d_perm_roots_count);
-  clSetKernelArg(kernel_point_cloud, 2, sizeof(cl_mem), &d_perm_roots_real);
-  clSetKernelArg(kernel_point_cloud, 3, sizeof(cl_mem), &d_perm_roots_imag);
-  clSetKernelArg(kernel_point_cloud, 4, sizeof(cl_mem), &d_perm_distinct);
+  clSetKernelArg(kernel_point_cloud, 0, sizeof(cl_mem), &d_comb_roots_hue_ind);
+  clSetKernelArg(kernel_point_cloud, 1, sizeof(cl_mem), &d_comb_roots_count);
+  clSetKernelArg(kernel_point_cloud, 2, sizeof(cl_mem), &d_comb_roots_real);
+  clSetKernelArg(kernel_point_cloud, 3, sizeof(cl_mem), &d_comb_roots_imag);
+  clSetKernelArg(kernel_point_cloud, 4, sizeof(cl_mem), &d_comb_valid);
   clSetKernelArg(kernel_point_cloud, 5, sizeof(cl_int), &nr);
   clSetKernelArg(kernel_point_cloud, 6, sizeof(cl_int), &st);
   clSetKernelArg(kernel_point_cloud, 7, sizeof(cl_int), &fw);
@@ -545,8 +545,8 @@ void render_point_cloud_gpu(cxldouble *roots, const size_t *num_distinct,
 
   // convert hue accumulator to pixels
   clSetKernelArg(kernel_point_cloud_hue, 0, sizeof(cl_mem), &d_buffer_output_frame);
-  clSetKernelArg(kernel_point_cloud_hue, 1, sizeof(cl_mem), &d_perm_roots_hue_ind);
-  clSetKernelArg(kernel_point_cloud_hue, 2, sizeof(cl_mem), &d_perm_roots_count);
+  clSetKernelArg(kernel_point_cloud_hue, 1, sizeof(cl_mem), &d_comb_roots_hue_ind);
+  clSetKernelArg(kernel_point_cloud_hue, 2, sizeof(cl_mem), &d_comb_roots_count);
   clSetKernelArg(kernel_point_cloud_hue, 3, sizeof(cl_int), &fw);
   clSetKernelArg(kernel_point_cloud_hue, 4, sizeof(cl_int), &fh);
   clSetKernelArg(kernel_point_cloud_hue, 5, sizeof(cl_float), &cl_sat);
@@ -569,7 +569,7 @@ void render_point_cloud_gpu(cxldouble *roots, const size_t *num_distinct,
 cleanup:
   free(roots_real);
   free(roots_imag);
-  free(distinct_roots);
+  free(valid_roots);
 }
 
 #endif // HAVE_OPENCL

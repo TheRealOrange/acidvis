@@ -159,15 +159,15 @@ void render_frame_roots(float scale_inp, float x_off_inp, float y_off_inp) {
 #endif
 }
 
-void render_point_cloud(cxldouble *roots, size_t *num_distinct,
+void render_point_cloud(cxldouble *roots, bool *valid,
                         size_t num_perms, size_t stride, float point_radius,
                         float scale, float x_off, float y_off) {
 #ifdef HAVE_OPENCL
   if (gpu_initialized) {
-    render_point_cloud_gpu(roots, num_distinct, num_perms, stride, point_radius,
+    render_point_cloud_gpu(roots, valid, num_perms, stride, point_radius,
                            scale, x_off, y_off);
   } else {
-    render_point_cloud_cpu(roots, num_distinct, num_perms, stride, point_radius,
+    render_point_cloud_cpu(roots, valid, num_perms, stride, point_radius,
                            scale, x_off, y_off);
   }
 #else

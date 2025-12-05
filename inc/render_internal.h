@@ -34,7 +34,7 @@ extern bool gpu_initialized;
 
 // cpu rendering functions
 void render_frame_cpu(void);
-void render_point_cloud_cpu(cxldouble *roots, const size_t *num_distinct,
+void render_point_cloud_cpu(cxldouble *roots, const bool *valid,
                             size_t num_perms, size_t stride, float point_radius,
                             float scale, float x_off, float y_off);
 
@@ -47,7 +47,7 @@ void render_gpu_resize_buffers(int width, int height);
 void render_gpu_set_polynomial(polynomial_t *P);
 
 void render_frame_gpu(void);
-void render_point_cloud_gpu(cxldouble *roots, const size_t *num_distinct,
+void render_point_cloud_gpu(cxldouble *roots, const bool *valid,
                             size_t num_perms, size_t stride, float point_radius,
                             float scale, float x_off, float y_off);
 

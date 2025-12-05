@@ -38,7 +38,7 @@ polynomial_t *polynomial_from_dis_roots(cxldouble *distinct_roots, size_t *mult,
 
 // create a polynomial with coefficients
 // ordered with k(N)x^N + K(N-1)x^(N-1) ... + k(1)x + k(0)
-polynomial_t *polynomial_from_coeffs(cxldouble *coeffs, size_t num_coeffs);
+polynomial_t *polynomial_from_coeffs(const cxldouble *coeffs, size_t num_coeffs);
 
 // free memory from polynomial struct
 void polynomial_free(polynomial_t *poly);
@@ -50,7 +50,7 @@ polynomial_t *polynomial_copy(polynomial_t *poly);
 cxldouble polynomial_eval(polynomial_t *poly, cxldouble z);
 
 // find all roots of polynomial, stores them in poly->roots
-// returns true on success
-bool polynomial_find_roots(polynomial_t *poly);
+// returns true on success optional deduplication of roots
+bool polynomial_find_roots(polynomial_t *poly, bool dedup);
 
 #endif //POLYNOMIAL_POLYNOMIAL_H

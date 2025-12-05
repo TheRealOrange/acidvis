@@ -29,7 +29,7 @@ polynomial_t *app_create_default_polynomial(size_t degree) {
 
   polynomial_t *p = polynomial_from_roots(roots, degree, false);
   if (p) {
-    polynomial_find_roots(p);  // ensure roots are valid
+    polynomial_find_roots(p, true);  // ensure roots are valid
   }
 
   free(roots);
@@ -77,11 +77,11 @@ void app_rebuild_from_coeffs(AppState *state) {
   // find roots of the modified polynomial
 #ifdef HAVE_LAPACK
   if (state->lapack)
-    polynomial_find_roots_companion(state->poly);
+    polynomial_find_roots_companion(state->poly, true);
   else
-    polynomial_find_roots(state->poly);
+    polynomial_find_roots(state->poly, true);
 #else
-  polynomial_find_roots(state->poly);
+  polynomial_find_roots(state->poly, true);
 #endif
 
   set_polynomial(state->poly);
@@ -297,6 +297,10 @@ bool app_init(AppState *state, int argc, char **argv) {
     }
   }
 
+  // caching arrays initialized to NULL, will be allocated when entering cloud mode
+  state->prev_base_coeffs = NULL;
+  state->since_last_update = NULL;
+
   // keyboard state
   state->zoom_accel = 1.0f;
   state->pan_accel = 1.0f;
@@ -335,8 +339,10 @@ void app_cleanup(AppState *state) {
   if (state->texture) SDL_DestroyTexture(state->texture);
   if (state->poly) polynomial_free(state->poly);
   if (state->combination_roots) free(state->combination_roots);
-  if (state->num_distinct) free(state->num_distinct);
+  if (state->combination_valid) free(state->combination_valid);
   if (state->base_coeffs) free(state->base_coeffs);
+  if (state->prev_base_coeffs) free(state->prev_base_coeffs);
+  if (state->since_last_update) free(state->since_last_update);
 
   cleanup_renderer();
 }

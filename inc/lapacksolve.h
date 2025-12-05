@@ -23,8 +23,8 @@ bool _polynomial_find_roots_companion(polynomial_t *poly,
                                      size_t *num_roots);
 
 // Find roots and store them directly in the polynomial structure
-// Handles deduplication and multiplicity detection
-bool polynomial_find_roots_companion(polynomial_t *poly);
+// optional deduplication and multiplicity
+bool polynomial_find_roots_companion(polynomial_t *poly, bool dedup);
 
 // batched eigenvalue computation for multiple companion matrices
 // processes batch_size matrices in parallel with memory awareness

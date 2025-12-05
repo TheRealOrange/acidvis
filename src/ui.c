@@ -283,7 +283,7 @@ void ui_render_frame(AppState *state) {
         radius *= sqrtf(zoom_factor);
       }
 
-      render_point_cloud(state->combination_roots, state->num_distinct,
+      render_point_cloud(state->combination_roots, state->combination_valid,
                          state->num_combinations, state->comb_roots_stride, radius,
                          state->scale, state->center_x, state->center_y);
     }

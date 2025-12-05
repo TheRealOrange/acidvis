@@ -95,6 +95,7 @@ static inline cxldouble cxscaledivl(cxldouble z, long double s) { return cxscale
 static inline cxldouble cxsqrtl(cxldouble z) { return csqrt(z); }
 static inline cxldouble cxexpl(cxldouble z)  { return cexp(z); }
 static inline cxldouble cxlogl(cxldouble z)  { return clog(z); }
+static inline cxldouble cxpowl(cxldouble a, cxldouble b) { return cpow(a, b); }
 
 // conversions (no-op on msvc, same type)
 static inline cxdouble cxl_to_cx(cxldouble z) { return z; }
@@ -218,11 +219,13 @@ static inline cxldouble cxconjl(cxldouble z) { return conj(z); }
 static inline cxldouble cxsqrtl(cxldouble z) { return csqrt(z); }
 static inline cxldouble cxexpl(cxldouble z)  { return cexp(z); }
 static inline cxldouble cxlogl(cxldouble z)  { return clog(z); }
+static inline cxldouble cxpowl(cxldouble a, cxldouble b) { return cpow(a, b); }
 #else
 static inline cxldouble cxconjl(cxldouble z) { return conjl(z); }
 static inline cxldouble cxsqrtl(cxldouble z) { return csqrtl(z); }
 static inline cxldouble cxexpl(cxldouble z)  { return cexpl(z); }
 static inline cxldouble cxlogl(cxldouble z)  { return clogl(z); }
+static inline cxldouble cxpowl(cxldouble a, cxldouble b) { return cpowl(a, b); }
 #endif
 
 // conversions
