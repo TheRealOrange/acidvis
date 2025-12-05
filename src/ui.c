@@ -167,7 +167,7 @@ void ui_render_info_overlay(AppState *state) {
   if (show_solve_stats) {
     int y_pos = (state->anim_active && state->anim_state) ? 85 : 70;
     SDL_RenderDebugTextFormat(state->ren, 5, y_pos,
-        "solver: incr %zu  full %zu  (failed %zu)",
+        "solver: incr %6zu  full %6zu  (failed %6zu)",
         state->solve_stats.num_incremental,
         state->solve_stats.num_fullsolve,
         state->solve_stats.num_incremental_failed);

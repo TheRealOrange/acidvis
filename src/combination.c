@@ -17,7 +17,7 @@
 
 #include "polysolve.h"
 
-#define UPDATE_INTERVAL      48
+#define UPDATE_INTERVAL      64
 #define MAX_JT_ITERS_UPDATE  72
 
 #define MIN(a, b) ((a) < (b) ? (a) : (b))
@@ -163,33 +163,33 @@ static size_t process_batch_lapack(
     // each thread allocates once
     cxldouble *coeffs = malloc((n + 1) * sizeof(cxldouble));
 
+    if (coeffs) {
 #pragma omp for schedule(static)
-    for (batch_i = 0; batch_i < (int)batch_size; batch_i++) {
-      if (!coeffs) continue;
+      for (batch_i = 0; batch_i < (int)batch_size; batch_i++) {
+        size_t global_i = batch_idxes[batch_i];
 
-      size_t global_i = batch_idxes[batch_i];
+        // build polynomial coefficients
+        index_to_combination(global_i, num_base_coeffs, n + 1, base_coeffs, coeffs);
 
-      // build polynomial coefficients
-      index_to_combination(global_i, num_base_coeffs, n + 1, base_coeffs, coeffs);
+        // normalize to monic
+        cxldouble lead = coeffs[n];
+        for (size_t i = 0; i <= n; i++) {
+          coeffs[i] = cxdivl(coeffs[i], lead);
+        }
 
-      // normalize to monic
-      cxldouble lead = coeffs[n];
-      for (size_t i = 0; i <= n; i++) {
-        coeffs[i] = cxdivl(coeffs[i], lead);
-      }
+        // build companion matrix in column-major order at compacted position
+        cxdouble *matrix = matrices + (batch_i * n * n);
+        memset(matrix, 0, n * n * sizeof(cxdouble));
 
-      // build companion matrix in column-major order at compacted position
-      cxdouble *matrix = matrices + (batch_i * n * n);
-      memset(matrix, 0, n * n * sizeof(cxdouble));
+        // subdiagonal: 1s
+        for (size_t i = 1; i < n; i++) {
+          matrix[i + (i-1) * n] = CX(1.0, 0.0);
+        }
 
-      // subdiagonal: 1s
-      for (size_t i = 1; i < n; i++) {
-        matrix[i + (i-1) * n] = CX(1.0, 0.0);
-      }
-
-      // last column: -c_i (negated normalized coefficients)
-      for (size_t i = 0; i < n; i++) {
-        matrix[i + (n-1) * n] = cxl_to_cx(cxnegl(coeffs[i]));
+        // last column: -c_i (negated normalized coefficients)
+        for (size_t i = 0; i < n; i++) {
+          matrix[i + (n-1) * n] = cxl_to_cx(cxnegl(coeffs[i]));
+        }
       }
     }
 
@@ -383,26 +383,26 @@ size_t polynomial_find_root_combinations_cached(
     cxldouble *work_h = calloc(poly_degree, sizeof(cxldouble));
     cxldouble *prev_roots = calloc(num_positions, sizeof(cxldouble));
 
-    #pragma omp for schedule(dynamic)
-    for (it = 0; it < num_incremental; it++) {
-      if (!prev_coeff_combination || !curr_coeff_combination ||
-          !work_deriv || !work_b || !work_p || !work_h || !prev_roots) continue;
+    if (prev_coeff_combination && curr_coeff_combination &&
+        work_deriv && work_b && work_p && work_h && prev_roots) {
+      #pragma omp for schedule(dynamic)
+      for (it = 0; it < (int)num_incremental; it++) {
+        size_t global_id = incremental_idxes[it];
+        cxldouble *single_poly_roots = roots + (global_id * poly_degree);
 
-      size_t global_id = incremental_idxes[it];
-      cxldouble *single_poly_roots = roots + (global_id * poly_degree);
+        index_to_combination(global_id, num_base_coeffs, num_positions, base_coeffs, curr_coeff_combination);
+        index_to_combination(global_id, num_base_coeffs, num_positions, prev_coeffs, prev_coeff_combination);
 
-      index_to_combination(global_id, num_base_coeffs, num_positions, base_coeffs, curr_coeff_combination);
-      index_to_combination(global_id, num_base_coeffs, num_positions, prev_coeffs, prev_coeff_combination);
+        // store a copy of the old roots
+        memcpy(prev_roots, single_poly_roots, poly_degree * sizeof(cxldouble));
+        size_t found_roots = process_incremental_single_combination(
+          curr_coeff_combination, prev_coeff_combination,
+          work_deriv, work_b, work_p, work_h,
+          prev_roots, single_poly_roots, poly_degree
+        );
 
-      // store a copy of the old roots
-      memcpy(prev_roots, single_poly_roots, poly_degree * sizeof(cxldouble));
-      size_t found_roots = process_incremental_single_combination(
-        curr_coeff_combination, prev_coeff_combination,
-        work_deriv, work_b, work_p, work_h,
-        prev_roots, single_poly_roots, poly_degree
-      );
-
-      roots_found_incremental[it] = found_roots;
+        roots_found_incremental[it] = found_roots;
+      }
     }
 
     free(prev_coeff_combination);
@@ -507,20 +507,22 @@ size_t polynomial_find_root_combinations_cached(
     {
       cxldouble *coeffs = malloc(num_positions * sizeof(cxldouble));
 
-      #pragma omp for schedule(dynamic) reduction(+:total_roots)
-      for (i = 0; i < num_fullsolve; i++) {
-        size_t global_id = fullsolve_idxes[i];
-        cxldouble *my_roots = roots + (global_id * poly_degree);
+      if (coeffs) {
+        #pragma omp for schedule(dynamic) reduction(+:total_roots)
+        for (i = 0; i < (int)num_fullsolve; i++) {
+          size_t global_id = fullsolve_idxes[i];
+          cxldouble *my_roots = roots + (global_id * poly_degree);
 
-        index_to_combination(global_id, num_base_coeffs, num_positions, base_coeffs, coeffs);
+          index_to_combination(global_id, num_base_coeffs, num_positions, base_coeffs, coeffs);
 
-        size_t found = process_single_combination(
-          coeffs, poly_degree,
-          my_roots, poly_degree, use_lapack
-        );
+          size_t found = process_single_combination(
+            coeffs, poly_degree,
+            my_roots, poly_degree, use_lapack
+          );
 
-        combination_valid[global_id] = found == poly_degree;
-        total_roots += found;
+          combination_valid[global_id] = found == poly_degree;
+          total_roots += found;
+        }
       }
 
       free(coeffs);
