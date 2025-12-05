@@ -19,7 +19,7 @@ message(STATUS "Compiler: ${CMAKE_C_COMPILER_ID} ${CMAKE_C_COMPILER_VERSION}")
 # options
 option(STATIC_LINK "static link runtime libraries" ON)
 option(PORTABLE_BUILD "disable -march=native for portable binaries" OFF)
-option(COMPAT_COMPLEX_DOUBLE_ONLY "use double instead of long double for complex (msvc compat)" OFF)
+option(COMPAT_COMPLEX_DOUBLE_ONLY "use double instead of long double for complex" ON)
 
 # force double-only mode on msvc (long double == double anyway)
 if(MSVC)
@@ -270,7 +270,8 @@ endif()
 set(CORE_SOURCES
         src/polynomial.c
         src/polysolve.c
-        src/companion.c
+        src/lapacksolve.c
+        src/combination.c
         src/util.c
 )
 

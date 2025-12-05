@@ -3,7 +3,7 @@
 //
 
 #include "cloud.h"
-#include "polynomial.h"
+#include "combination.h"
 #include "util.h"
 
 #include <SDL3/SDL.h>

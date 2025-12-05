@@ -12,8 +12,7 @@
 
 typedef struct polynomial polynomial_t;
 
-#define MAX_BATCH_SIZE   40960
-#define MAX_BATCH_MEM_MB 100
+#define MAX_BATCH_SIZE   8192
 
 struct polynomial {
   size_t degree;
@@ -53,47 +52,5 @@ cxldouble polynomial_eval(polynomial_t *poly, cxldouble z);
 // find all roots of polynomial, stores them in poly->roots
 // returns true on success
 bool polynomial_find_roots(polynomial_t *poly);
-
-// find roots for all coefficient combinations
-// given N base coefficients and degree M, generates N^(M+1) polynomials
-// by substituting each base coeff into each position
-// roots array should be num_combinations * poly_degree
-// num_distinct array should be num_combinations
-// returns total roots found
-size_t polynomial_find_root_combinations(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations);
-
-size_t polynomial_find_root_combinations_companion(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations);
-
-// only computes every skip-th combination
-// skipped combinations have num_distinct[i] = 0 to maintain hue index
-size_t polynomial_find_root_combinations_skip(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations,
-    size_t skip);
-
-size_t polynomial_find_root_combinations_companion_skip(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations,
-    size_t skip);
 
 #endif //POLYNOMIAL_POLYNOMIAL_H

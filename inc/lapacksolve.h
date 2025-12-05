@@ -1,5 +1,5 @@
-#ifndef POLYNOMIAL_COMPANION_H
-#define POLYNOMIAL_COMPANION_H
+#ifndef POLYNOMIAL_LAPACKSOLVE_H
+#define POLYNOMIAL_LAPACKSOLVE_H
 
 #include "polynomial.h"
 #include <stdbool.h>
@@ -38,4 +38,4 @@ size_t compute_eigenvalues_batch(
 
 #endif // HAVE_LAPACK
 
-#endif // POLYNOMIAL_COMPANION_H
+#endif // POLYNOMIAL_LAPACKSOLVE_H

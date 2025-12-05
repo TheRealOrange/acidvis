@@ -4,7 +4,7 @@
 
 #include "app.h"
 #include "cloud.h"
-#include "companion.h"
+#include "lapacksolve.h"
 #include "render.h"
 #include "util.h"
 

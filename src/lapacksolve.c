@@ -1,4 +1,4 @@
-#include "companion.h"
+#include "lapacksolve.h"
 
 #ifdef HAVE_LAPACK
 

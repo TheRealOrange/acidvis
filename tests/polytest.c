@@ -21,7 +21,7 @@
 #include "polysolve.h"
 
 #ifdef HAVE_LAPACK
-#include "companion.h"
+#include "lapacksolve.h"
 #endif
 
 // test framework
