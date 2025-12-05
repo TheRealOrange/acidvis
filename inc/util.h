@@ -5,27 +5,6 @@
 #ifndef POLYNOMIAL_UTIL_H
 #define POLYNOMIAL_UTIL_H
 
-#define MIN(a, b)       \
-({                      \
-__typeof__(a) _a = (a); \
-__typeof__(b) _b = (b); \
-_a < _b ? _a : _b;      \
-})
-
-#define MAX(a, b)       \
-({                      \
-__typeof__(a) _a = (a); \
-__typeof__(b) _b = (b); \
-_a > _b ? _a : _b;      \
-})
-
-#define CEILDIV(a, b)       \
-({                          \
-__typeof__(a) _a = (a); \
-__typeof__(b) _b = (b); \
-(_a + _b - 1) / _b;     \
-})
-
 #include <stdio.h>
 
 float hue_to_rgb_cpu(float p, float q, float t);

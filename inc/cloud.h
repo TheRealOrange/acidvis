@@ -18,7 +18,7 @@ void cloud_update(AppState *state, size_t skip);
 
 // update point cloud during drag (uses incremental solving for speed)
 // skip parameter: if > 1, only computes every skip-th combination
-void cloud_update_drag(AppState *state, size_t skip);
+void cloud_update_incremental(AppState *state, size_t skip);
 
 // call after drag ends to do a full recalculation
 void cloud_update_drag_end(AppState *state);

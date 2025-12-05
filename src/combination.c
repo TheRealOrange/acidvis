@@ -14,12 +14,14 @@
 #include <stddef.h>
 #include <stdlib.h>
 #include <string.h>
-#include <dispatch/dispatch.h>
 
 #include "polysolve.h"
 
 #define UPDATE_INTERVAL      16
 #define MAX_JT_ITERS_UPDATE  128
+
+#define MIN(a, b) ((a) < (b) ? (a) : (b))
+#define CEILDIV(a, b) (((a) + (b) - 1) / (b))
 
 // convert combination index to coefficient assignment
 // treats index as base-N number where each digit picks which base coeff to use
@@ -199,7 +201,7 @@ static size_t process_batch_lapack(
   if (batch_size > 0) {
     successful = compute_eigenvalues_batch(matrices, n, batch_size, eigenvalues);
     if (!successful) {
-      fprintf(stderr, "failed to solve eigenvalue batch with degree=%lu, batch_size=%lu\n", n, batch_size);
+      fprintf(stderr, "failed to solve eigenvalue batch with degree=%zu, batch_size=%zu\n", n, batch_size);
     }
   }
 
@@ -327,7 +329,7 @@ size_t polynomial_find_root_combinations_cached(
     if (fullsolve_idxes) free(fullsolve_idxes);
     if (incremental_idxes) free(incremental_idxes);
     if (roots_found_incremental) free(roots_found_incremental);
-    fprintf(stderr, "failed to allocate id arrays for num_combinations=%lu\n", num_combinations);
+    fprintf(stderr, "failed to allocate id arrays for num_combinations=%zu\n", num_combinations);
     return 0;
   }
 

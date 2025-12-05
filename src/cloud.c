@@ -109,7 +109,7 @@ void cloud_update(AppState *state, size_t skip) {
 }
 
 // incremental solve during drag
-void cloud_update_drag(AppState *state, size_t skip) {
+void cloud_update_incremental(AppState *state, size_t skip) {
   if (!state->base_coeffs || state->view_mode != VIEW_MODE_POINT_CLOUD) return;
   if (state->num_base_coeffs == 0 || state->poly_degree_cloud == 0) {
     SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION,

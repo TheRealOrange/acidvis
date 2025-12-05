@@ -116,7 +116,8 @@ void app_update_animation(AppState *state) {
     for (size_t i = 0; i < anim->num_points && i < state->num_base_coeffs; i++) {
       state->base_coeffs[i] = anim->points[i];
     }
-    cloud_update(state, 1);
+    cloud_update_incremental(state, 1);
+    //cloud_update(state, 1);
   } else {
     // update roots directly
     if (state->poly && state->poly->roots_valid) {

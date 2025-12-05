@@ -398,7 +398,7 @@ static void handle_mouse_motion(AppState *state, SDL_Event *event) {
       }
       state->drag_skip = skip;
       // use incremental solver during drag
-      cloud_update_drag(state, skip);
+      cloud_update_incremental(state, skip);
     } else {
       state->poly->coeffs[state->drag_index] = CXL(cx, cy);
       app_rebuild_from_coeffs(state);
