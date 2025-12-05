@@ -439,8 +439,6 @@ jt_status find_next_root(polynomial_t *P, cxldouble *root_out) {
     } else if (res == JT_H_ZERO) {
       // retry with different starting point
     }
-
-    polynomial_free(H);
   }
 
   free(work_p);
@@ -476,7 +474,10 @@ jt_status iterate_find(polynomial_t *H, polynomial_t *P, cxldouble *work_p, cxld
       continue;
     }
 
-    if (st == JT_ERROR) return JT_ERROR;
+    if (st == JT_ERROR) {
+      polynomial_free(H);
+      return JT_ERROR;
+    }
     if (H_new) {
       polynomial_free(H);
       H = H_new;
@@ -515,6 +516,7 @@ jt_status iterate_find(polynomial_t *H, polynomial_t *P, cxldouble *work_p, cxld
     s = s_new;
   }
 
+  polynomial_free(H);
   return JT_OK;
 }
 

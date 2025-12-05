@@ -264,7 +264,7 @@ __kernel void render_point_cloud(
     __global int* point_cnt,
     __global const float* roots_real,
     __global const float* roots_imag,
-    __global const bool* valid,
+    __global const uchar* valid,
     const int num_perms,
     const int stride,
     const int frame_width,

@@ -18,8 +18,8 @@
 
 #include "polysolve.h"
 
-#define UPDATE_INTERVAL       6
-#define MAX_JT_ITERS_UPDATE 128
+#define UPDATE_INTERVAL      16
+#define MAX_JT_ITERS_UPDATE  128
 
 // convert combination index to coefficient assignment
 // treats index as base-N number where each digit picks which base coeff to use
@@ -117,7 +117,6 @@ static int process_incremental_single_combination(
       // return 0 to indicate we want to fallback to full solve or
       // eigenvalue solve
 
-      fprintf(stderr, "iterate_find failed res=%d\n", res);
       polynomial_free(H);
       polynomial_free(P);
       return 0;
@@ -339,7 +338,7 @@ size_t polynomial_find_root_combinations_cached(
   // find out how many we need to fullsolve vs incremental solve
   for (size_t i = 0; i < num_combinations; i++) {
     if (i % skip == 0) {
-      if (since_last_update[i] > UPDATE_INTERVAL || !incremental) {
+      if (true || since_last_update[i] > UPDATE_INTERVAL || !incremental) {
         // need to fullsolve either because
         // it is too long since last update or
         // we are not requesting an incremental solve
@@ -500,7 +499,7 @@ size_t polynomial_find_root_combinations_cached(
     {
       cxldouble *coeffs = malloc(num_positions * sizeof(cxldouble));
 
-      #pragma omp parallel for schedule(dynamic) reduction(+:total_roots)
+      #pragma omp for schedule(dynamic) reduction(+:total_roots)
       for (i = 0; i < num_fullsolve; i++) {
         size_t global_id = fullsolve_idxes[i];
         cxldouble *my_roots = roots + (global_id * poly_degree);
@@ -519,18 +518,24 @@ size_t polynomial_find_root_combinations_cached(
       free(coeffs);
     }
 #else
-    for (size_t i = 0; i < num_fullsolve; i++) {
-      size_t global_id = fullsolve_idxes[i];
-      cxldouble *my_roots = roots + (global_id * poly_degree);
+    cxldouble *coeffs = malloc(num_positions * sizeof(cxldouble));
+    if (coeffs) {
+      for (size_t i = 0; i < num_fullsolve; i++) {
+        size_t global_id = fullsolve_idxes[i];
+        cxldouble *my_roots = roots + (global_id * poly_degree);
 
-      size_t found = process_single_combination(
-        base_coeffs, num_base_coeffs, poly_degree, global_id,
-        my_roots, poly_degree, use_lapack
-      );
+        index_to_combination(global_id, num_base_coeffs, num_positions, base_coeffs, coeffs);
 
-      combination_valid[global_id] = found == poly_degree;
-      total_roots += found;
+        size_t found = process_single_combination(
+          coeffs, poly_degree,
+          my_roots, poly_degree, use_lapack
+        );
+
+        combination_valid[global_id] = found == poly_degree;
+        total_roots += found;
+      }
     }
+    free(coeffs);
 #endif
   }
 

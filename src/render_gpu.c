@@ -446,7 +446,7 @@ void render_point_cloud_gpu(cxldouble *roots, const bool *valid,
     }
 
     d_comb_valid = clCreateBuffer(context, CL_MEM_READ_ONLY,
-                                     num_perms * sizeof(cl_bool), NULL, &err);
+                                     num_perms * sizeof(cl_uchar), NULL, &err);
     if (err != CL_SUCCESS) {
       SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to create perm comb_valid buffer");
       return;
@@ -458,7 +458,7 @@ void render_point_cloud_gpu(cxldouble *roots, const bool *valid,
   // upload root data
   cl_float *roots_real = malloc(total_roots * sizeof(cl_float));
   cl_float *roots_imag = malloc(total_roots * sizeof(cl_float));
-  cl_bool *valid_roots = malloc(num_perms * sizeof(cl_bool));
+  cl_uchar *valid_roots = malloc(num_perms * sizeof(cl_uchar));
 
   for (size_t i = 0; i < total_roots; i++) {
     roots_real[i] = (cl_float)cxreall(roots[i]);
@@ -466,7 +466,7 @@ void render_point_cloud_gpu(cxldouble *roots, const bool *valid,
   }
 
   for (size_t i = 0; i < num_perms; i++) {
-    valid_roots[i] = (cl_bool)valid[i];
+    valid_roots[i] = (cl_uchar)valid[i];
   }
 
   err = clEnqueueWriteBuffer(queue, d_comb_roots_real, CL_FALSE, 0,
@@ -484,7 +484,7 @@ void render_point_cloud_gpu(cxldouble *roots, const bool *valid,
   }
 
   err = clEnqueueWriteBuffer(queue, d_comb_valid, CL_FALSE, 0,
-                             num_perms * sizeof(cl_bool), valid_roots, 0, NULL, NULL);
+                             num_perms * sizeof(cl_uchar), valid_roots, 0, NULL, NULL);
   if (err != CL_SUCCESS) {
     SDL_LogError(SDL_LOG_CATEGORY_RENDER, "failed to write perm num distinct buffer");
     goto cleanup;

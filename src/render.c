@@ -171,7 +171,7 @@ void render_point_cloud(cxldouble *roots, bool *valid,
                            scale, x_off, y_off);
   }
 #else
-  render_point_cloud_cpu(roots, num_distinct, num_perms, stride, point_radius,
+  render_point_cloud_cpu(roots, valid, num_perms, stride, point_radius,
                          scale, x_off, y_off);
 #endif
 }

@@ -7,7 +7,7 @@
 
 #include "app.h"
 
-#define DRAG_RENDER_POINTS 20000
+#define DRAG_RENDER_POINTS 40000
 
 // allocate/reallocate combination arrays based on current settings
 void cloud_reallocate_combinations(AppState *state);
