@@ -5,6 +5,7 @@
 #ifndef POLYNOMIAL_COMBINATION_H
 #define POLYNOMIAL_COMBINATION_H
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stddef.h>
 
@@ -14,40 +15,15 @@
 // roots array should be num_combinations * poly_degree
 // num_distinct array should be num_combinations
 // returns total roots found
+// only computes every skip-th combination
+// skipped combinations have num_distinct[i] = 0 to maintain hue index
 size_t polynomial_find_root_combinations(
     const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
     cxldouble **roots,
     size_t **num_distinct,
-    size_t num_combinations);
-
-size_t polynomial_find_root_combinations_companion(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations);
-
-// only computes every skip-th combination
-// skipped combinations have num_distinct[i] = 0 to maintain hue index
-size_t polynomial_find_root_combinations_skip(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
     size_t num_combinations,
-    size_t skip);
-
-size_t polynomial_find_root_combinations_companion_skip(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations,
-    size_t skip);
+    size_t skip, bool use_lapack);
 
 #endif //POLYNOMIAL_COMBINATION_H

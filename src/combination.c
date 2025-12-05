@@ -173,15 +173,14 @@ static size_t process_single_combination(
 // find roots for all N^(M+1) coefficient combinations
 // skip parameter: if > 1, only compute every skip-th combination
 // skipped combinations will have num_distinct[i] = 0 to maintain hue index
-static size_t polynomial_find_root_combinations_helper(
+size_t polynomial_find_root_combinations(
     const cxldouble *base_coeffs,
     size_t num_base_coeffs,
     size_t poly_degree,
     cxldouble **roots,
     size_t **num_distinct,
     size_t num_combinations,
-    bool use_lapack,
-    size_t skip) {
+    size_t skip, bool use_lapack) {
 
   if (!base_coeffs || num_base_coeffs == 0 || poly_degree == 0 || !*roots || !*num_distinct) {
     printf("invalid args\n");
@@ -277,54 +276,4 @@ static size_t polynomial_find_root_combinations_helper(
 #endif
 
   return total_roots;
-}
-
-size_t polynomial_find_root_combinations(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations) {
-  return polynomial_find_root_combinations_helper(
-    base_coeffs, num_base_coeffs, poly_degree,
-    roots, num_distinct, num_combinations, false, 1);
-}
-
-size_t polynomial_find_root_combinations_companion(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations) {
-  return polynomial_find_root_combinations_helper(
-    base_coeffs, num_base_coeffs, poly_degree,
-    roots, num_distinct, num_combinations, true, 1);
-}
-
-size_t polynomial_find_root_combinations_skip(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations,
-    size_t skip) {
-  return polynomial_find_root_combinations_helper(
-    base_coeffs, num_base_coeffs, poly_degree,
-    roots, num_distinct, num_combinations, false, skip);
-}
-
-size_t polynomial_find_root_combinations_companion_skip(
-    const cxldouble *base_coeffs,
-    size_t num_base_coeffs,
-    size_t poly_degree,
-    cxldouble **roots,
-    size_t **num_distinct,
-    size_t num_combinations,
-    size_t skip) {
-  return polynomial_find_root_combinations_helper(
-    base_coeffs, num_base_coeffs, poly_degree,
-    roots, num_distinct, num_combinations, true, skip);
 }

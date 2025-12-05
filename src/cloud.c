@@ -52,37 +52,13 @@ void cloud_update(AppState *state, size_t skip) {
   }
 
 #ifdef HAVE_LAPACK
-  if (state->lapack) {
-    if (skip > 1) {
-      state->found_roots = polynomial_find_root_combinations_companion_skip(
-          state->base_coeffs, state->num_base_coeffs, state->poly_degree_cloud,
-          &state->combination_roots, &state->num_distinct, state->num_combinations, skip);
-    } else {
-      state->found_roots = polynomial_find_root_combinations_companion(
-          state->base_coeffs, state->num_base_coeffs, state->poly_degree_cloud,
-          &state->combination_roots, &state->num_distinct, state->num_combinations);
-    }
-  } else {
-    if (skip > 1) {
-      state->found_roots = polynomial_find_root_combinations_skip(
-          state->base_coeffs, state->num_base_coeffs, state->poly_degree_cloud,
-          &state->combination_roots, &state->num_distinct, state->num_combinations, skip);
-    } else {
-      state->found_roots = polynomial_find_root_combinations(
-          state->base_coeffs, state->num_base_coeffs, state->poly_degree_cloud,
-          &state->combination_roots, &state->num_distinct, state->num_combinations);
-    }
-  }
+  state->found_roots = polynomial_find_root_combinations(
+        state->base_coeffs, state->num_base_coeffs, state->poly_degree_cloud,
+        &state->combination_roots, &state->num_distinct, state->num_combinations, skip, state->lapack);
 #else
-  if (skip > 1) {
-    state->found_roots = polynomial_find_root_combinations_skip(
+  state->found_roots = polynomial_find_root_combinations(
         state->base_coeffs, state->num_base_coeffs, state->poly_degree_cloud,
-        &state->combination_roots, &state->num_distinct, state->num_combinations, skip);
-  } else {
-    state->found_roots = polynomial_find_root_combinations(
-        state->base_coeffs, state->num_base_coeffs, state->poly_degree_cloud,
-        &state->combination_roots, &state->num_distinct, state->num_combinations);
-  }
+        &state->combination_roots, &state->num_distinct, state->num_combinations, skip, false);
 #endif
 }
 
