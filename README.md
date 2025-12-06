@@ -123,7 +123,7 @@ Polynomials are stored with both coefficient and root representations. The `poly
 - Coefficients ordered as $k_n x^n + k_{n-1} x^{n-1} + \cdots + k_1 x + k_0$
 - Distinct roots with their multiplicities, in the case of repeated roots
 
-When you drag a root, the coefficients are recomputed by expanding from the factored form. When you drag a coefficient, the roots are found via the solver. The colours on the screen are rendered using OpenCL if available, or CPU fallback if not available.
+When manipulating a root, the coefficients are recomputed by expanding from the factored form. When manipulating a coefficient, the roots are found via the solver. The colours on the screen are rendered using OpenCL if available, or CPU fallback if not available.
 
 ### root finding
 
@@ -145,13 +145,13 @@ has eigenvalues equal to the polynomial's roots.
 
 ### cloud mode combinatorics
 
-Given $N$ base coefficients and polynomial degree $M$, cloud mode generates all $N^{M+1}$ possible polynomials by placing each base coefficient at each position. Each combination index is treated as a base-$N$ number where each digit selects which base coefficient fills that position.
+Given $N$ base coefficients and polynomial degree $M$, cloud mode generates all $N^{M+1}$ possible polynomials by placing each base coefficient at each position. Each combination index is treated as a $\text{base-}N$ number where each digit selects which base coefficient fills that position.
 
 It would be prohibitively computationally expensive to perform root-finding on tens of thousands of polynomials every frame during drag operations. Several optimizations make this tractable:
 
 #### incremental solving
 
-The observation is that the roots have to morph continuously. When a base coefficient moves slightly, most roots also move slightly. Instead of full re-solving, we can:
+The observation is that the roots have to morph continuously. When a base coefficient moves slightly, most roots also move slightly. Instead of full re-solving every frame, we can:
 
 1. Estimates new root positions using first-order approximation (implicit differentiation of $P(r) = 0$)
 2. Uses only Stage 3 of Jenkins-Traub to refine from these estimates
@@ -161,7 +161,7 @@ This exploits temporal coherence—during a drag, we have excellent initial gues
 
 #### staggered full solves
 
-Even with incremental solving, numerical drift accumulates. The solver maintains a `since_last_update` counter per combination, triggering periodic full re-solves staggered across frames. This distributes the computational load evenly rather than causing frame hitches.
+Even with incremental solving, numerical drift accumulates. The solver maintains a `since_last_update` counter per combination, and the initial full-solves are staggered. By doing so we spread out the full root-finding such that only a small subset of all the polynomials get a full-solve in any one frame. It is known that when the coefficients near zero, the incremental solve will have a higher rate of failure and will fallback to a full solve, which is a potential source of lag.
 
 #### GPU rendering (OpenCL)
 
@@ -179,11 +179,9 @@ For cloud mode, these kernels handle the point rendering:
 
 5. **`render_point_cloud_hue`** — Converts accumulated hue vectors to final pixel colors and outputs to a RGBA buffer.
 
-The OpenCL source (`render.cl`) is embedded directly into the binary at compile time.
-
 #### CPU fallback
 
-Without OpenCL, rendering uses OpenMP-parallelized CPU evaluation. The pixel buffer is partitioned across threads with static scheduling. Cloud mode uses per-thread hue accumulation buffers to avoid contention.
+When OpenCL is not available, rendering uses OpenMP-parallelized CPU evaluation.
 
 ### cross-platform notes
 
