@@ -117,5 +117,6 @@ bool app_load_animation(AppState *state, const char *filename);
 void app_unload_animation(AppState *state);
 void app_update_animation(AppState *state);
 bool app_editing_allowed(AppState *state);
+void app_apply_animation_frame(AppState *state);
 
 #endif // POLYNOMIAL_APP_H

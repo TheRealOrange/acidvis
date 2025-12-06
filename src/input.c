@@ -269,6 +269,7 @@ static SDL_AppResult handle_key_down(AppState *state, SDL_Event *event) {
       if (state->anim_active && state->anim_state) {
         if (state->anim_state->finished) {
           anim_reset(state->anim_state);
+          app_apply_animation_frame(state);
         }
         state->anim_state->playing = !state->anim_state->playing;
         state->anim_last_tick = SDL_GetTicks();
@@ -279,6 +280,7 @@ static SDL_AppResult handle_key_down(AppState *state, SDL_Event *event) {
     case SCANCODE_ANIM_RESET:
       if (state->anim_active && state->anim_state) {
         anim_reset(state->anim_state);
+        app_apply_animation_frame(state);
         state->anim_last_tick = SDL_GetTicks();
         state->needs_redraw = true;
       }

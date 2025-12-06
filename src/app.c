@@ -92,6 +92,40 @@ bool app_editing_allowed(AppState *state) {
   return !state->anim_active;
 }
 
+// apply current animation state to polynomial/coefficients (without advancing time)
+void app_apply_animation_frame(AppState *state) {
+  if (!state->anim_active || !state->anim_state) return;
+
+  anim_state_t *anim = state->anim_state;
+
+  // ensure animation state is up to date
+  anim_update(anim, 0.0f);
+
+  if (state->view_mode == VIEW_MODE_POINT_CLOUD) {
+    // update base coefficients from animation
+    for (size_t i = 0; i < anim->num_points && i < state->num_base_coeffs; i++) {
+      state->base_coeffs[i] = anim->points[i];
+    }
+    cloud_update(state, 1);
+  } else if (state->anim_script->mode == ANIM_MODE_COEFFS) {
+    // update polynomial coefficients directly
+    if (state->poly && state->poly->coeffs_valid) {
+      for (size_t i = 0; i < anim->num_points && i <= state->poly->degree; i++) {
+        state->poly->coeffs[i] = anim->points[i];
+      }
+      app_rebuild_from_coeffs(state);
+    }
+  } else {
+    // update roots directly
+    if (state->poly && state->poly->roots_valid) {
+      for (size_t i = 0; i < anim->num_points && i < state->poly->num_distinct_roots; i++) {
+        state->poly->roots[i] = anim->points[i];
+      }
+      app_rebuild_from_roots(state);
+    }
+  }
+}
+
 void app_update_animation(AppState *state) {
   if (!state->anim_active || !state->anim_state) return;
   if (!state->anim_state->playing) return;
@@ -118,6 +152,14 @@ void app_update_animation(AppState *state) {
     }
     cloud_update_incremental(state, 1);
     //cloud_update(state, 1);
+  } else if (state->anim_script->mode == ANIM_MODE_COEFFS) {
+    // update polynomial coefficients directly
+    if (state->poly && state->poly->coeffs_valid) {
+      for (size_t i = 0; i < anim->num_points && i <= state->poly->degree; i++) {
+        state->poly->coeffs[i] = anim->points[i];
+      }
+      app_rebuild_from_coeffs(state);
+    }
   } else {
     // update roots directly
     if (state->poly && state->poly->roots_valid) {
@@ -162,11 +204,12 @@ bool app_load_animation(AppState *state, const char *filename) {
   if (state->anim_script->mode == ANIM_MODE_CLOUD) {
     state->view_mode = VIEW_MODE_POINT_CLOUD;
 
-    // set degree from script
-    state->poly_degree_cloud = state->anim_script->degree;
+    // set degree from script (default to 4 if not specified)
+    state->poly_degree_cloud = state->anim_script->degree > 0 ? state->anim_script->degree : 4;
 
     // resize base_coeffs if needed
     size_t needed = state->anim_script->num_coeffs;
+    if (needed == 0) needed = state->anim_state->num_points;  // infer from keyframe
     if (needed > state->num_base_coeffs) {
       free(state->base_coeffs);
       state->base_coeffs = malloc(needed * sizeof(cxldouble));
@@ -182,11 +225,69 @@ bool app_load_animation(AppState *state, const char *filename) {
       state->base_coeffs[i] = state->anim_state->points[i];
     }
     cloud_update(state, 1);
-  } else {
-    // switch to roots mode if needed
+  } else if (state->anim_script->mode == ANIM_MODE_COEFFS) {
+    // animate polynomial coefficients in roots view
     if (state->view_mode != VIEW_MODE_ROOTS) {
       state->view_mode = VIEW_MODE_ROOTS;
       cloud_mode_exit(state);
+    }
+
+    // use explicit degree if provided, else infer from points
+    size_t degree;
+    if (state->anim_script->degree > 0) {
+      degree = state->anim_script->degree;
+    } else if (state->anim_state->num_points > 0) {
+      degree = state->anim_state->num_points - 1;
+    } else {
+      degree = 4;  // fallback
+    }
+
+    // free existing polynomial and create new one with correct degree
+    if (state->poly) {
+      polynomial_free(state->poly);
+    }
+    state->poly = polynomial_new(degree);
+    if (!state->poly) {
+      SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "failed to create polynomial for coeffs animation");
+      anim_free_state(state->anim_state);
+      anim_free_script(state->anim_script);
+      state->anim_state = NULL;
+      state->anim_script = NULL;
+      return false;
+    }
+
+    // apply initial coefficients from animation
+    for (size_t i = 0; i < state->anim_state->num_points && i <= state->poly->degree; i++) {
+      state->poly->coeffs[i] = state->anim_state->points[i];
+    }
+    state->poly->coeffs_valid = true;
+
+    // find roots from coefficients
+    app_rebuild_from_coeffs(state);
+
+    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
+                "coeffs animation: degree %zu, %zu coefficients",
+                degree, state->anim_state->num_points);
+  } else {
+    // roots mode
+    if (state->view_mode != VIEW_MODE_ROOTS) {
+      state->view_mode = VIEW_MODE_ROOTS;
+      cloud_mode_exit(state);
+    }
+
+    // use explicit degree if provided, else infer from points
+    size_t needed_roots;
+    if (state->anim_script->degree > 0) {
+      needed_roots = state->anim_script->degree;
+    } else {
+      needed_roots = state->anim_state->num_points;
+    }
+
+    // check if we need to resize polynomial for animation
+    if (!state->poly || state->poly->degree != needed_roots) {
+      // create new polynomial with correct number of roots
+      if (state->poly) polynomial_free(state->poly);
+      state->poly = app_create_default_polynomial(needed_roots);
     }
 
     // apply initial points to polynomial roots
@@ -203,11 +304,16 @@ bool app_load_animation(AppState *state, const char *filename) {
   state->anim_last_tick = SDL_GetTicks();
   state->needs_redraw = true;
 
+  const char *mode_str = "roots";
+  if (state->anim_script->mode == ANIM_MODE_CLOUD) mode_str = "cloud";
+  else if (state->anim_script->mode == ANIM_MODE_COEFFS) mode_str = "coeffs";
+
   SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
-              "loaded animation: %s (%.1fs, %zu keyframes, %s)",
+              "loaded animation: %s (%.1fs, %zu keyframes, %s, mode=%s)",
               filename, state->anim_script->total_duration,
               state->anim_script->num_keyframes,
-              state->anim_script->loop ? "looping" : "once");
+              state->anim_script->loop ? "looping" : "once",
+              mode_str);
 
   return true;
 }

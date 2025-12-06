@@ -25,7 +25,8 @@ typedef enum {
 
 typedef enum {
   ANIM_MODE_CLOUD,  // animate base_coeffs in cloud mode
-  ANIM_MODE_ROOTS   // animate roots in roots mode
+  ANIM_MODE_ROOTS,  // animate roots in roots mode
+  ANIM_MODE_COEFFS  // animate coefficients in roots mode
 } anim_mode_t;
 
 typedef struct {
@@ -50,7 +51,7 @@ typedef struct {
 // complete animation specs
 typedef struct {
   anim_mode_t mode;
-  size_t degree;                                 // polynomial degree (for cloud mode)
+  size_t degree;                                 // polynomial degree (for cloud/coeffs mode)
   size_t num_coeffs;                             // number of base coefficients
   bool loop;                                     // whether to loop
   float loop_delay;                              // delay before restart (seconds)

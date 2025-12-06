@@ -117,6 +117,15 @@ static bool json_get_bool(cJSON *obj, const char *key, bool def) {
   return def;
 }
 
+// parse animation mode from string
+static anim_mode_t anim_mode_from_string(const char *mode_str) {
+  if (!mode_str) return ANIM_MODE_CLOUD;
+  if (strcmp(mode_str, "roots") == 0) return ANIM_MODE_ROOTS;
+  if (strcmp(mode_str, "coeffs") == 0) return ANIM_MODE_COEFFS;
+  if (strcmp(mode_str, "coefficients") == 0) return ANIM_MODE_COEFFS;
+  return ANIM_MODE_CLOUD;
+}
+
 // parse a single keyframe
 static bool parse_keyframe(cJSON *kf_json, anim_keyframe_t *kf) {
   memset(kf, 0, sizeof(anim_keyframe_t));
@@ -180,12 +189,13 @@ anim_script_t *anim_parse_script(const char *json_str) {
     return NULL;
   }
 
-  // desired mode, either point cloud mode or single polynomial roots mode
+  // parse mode: "roots", "coeffs"/"coefficients", or "cloud" (default)
   const char *mode_str = json_get_string(root, "mode", "cloud");
-  script->mode = (strcmp(mode_str, "roots") == 0) ? ANIM_MODE_ROOTS : ANIM_MODE_CLOUD;
+  script->mode = anim_mode_from_string(mode_str);
 
   // parse degree and num_coeffs if they exist
-  script->degree = (size_t) json_get_number(root, "degree", 4);
+  // degree defaults to 0 meaning "infer from keyframe points"
+  script->degree = (size_t) json_get_number(root, "degree", 0);
   script->num_coeffs = (size_t) json_get_number(root, "num_coeffs", 0);
 
   // parse loop settings
@@ -232,6 +242,11 @@ anim_script_t *anim_parse_script(const char *json_str) {
   // infer num_coeffs from first keyframe if not specified
   if (script->num_coeffs == 0 && script->keyframes[0].points_valid) {
     script->num_coeffs = script->keyframes[0].num_points;
+  }
+
+  // for coeffs mode, infer degree from num_coeffs (degree = num_coeffs - 1)
+  if (script->mode == ANIM_MODE_COEFFS && script->degree == 0 && script->num_coeffs > 0) {
+    script->degree = script->num_coeffs - 1;
   }
 
   // calculate the total duration
