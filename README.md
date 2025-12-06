@@ -11,9 +11,10 @@ This project recreates two of the different visualisations shown in the video. T
 ### tl;dr
 
 **roots mode**: shows a single polynomial's output (argument → hue, magnitude → brightness) given inputs on the complex plane. drag roots or coefficients around to see how things change.
+![roots.gif](assets/roots.gif)
 
 **cloud mode**: generates all $N^{M+1}$ polynomials from $N$ base coefficients at degree $M$, plots all their roots simultaneously. makes pretty patterns. (might cause undue lag on your computer)
-
+![cloud.gif](assets/cloud.gif)
 ## building
 
 Standard CMake project. Tested to build on macOS and Windows (using the MSVC compiler). (It is because I tried to support MSVC that the complex number operations look so ugly—[MSVC does not support](https://learn.microsoft.com/en-us/cpp/c-runtime-library/complex-math-support?view=msvc-170) the typical `complex` keyword and intrinsic complex arithmetic).
