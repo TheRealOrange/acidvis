@@ -1,0 +1,65 @@
+{
+  "mode": "roots",
+  "degree": 2,
+  "loop": true,
+  "loop_delay": 0.0,
+
+  "keyframes": [
+    {
+      "time": 0.0,
+      "points": [
+        [-1.0, -0.5],
+        [1.0, -0.5]
+      ],
+      "ease": "linear"
+    },
+    {
+      "time": 1.5,
+      "points": [
+        [-1.0, -0.5],
+        [1.0, -0.5]
+      ],
+      "ease": "linear"
+    },
+    {
+      "time": 2.25,
+      "points": [
+        [0.0, 0.2],
+        [0.0, -1.2]
+      ],
+      "ease": "smooth"
+    },
+    {
+      "time": 3.0,
+      "points": [
+        [1.0, -0.5],
+        [-1.0, -0.5]
+      ],
+      "ease": "smooth"
+    },
+    {
+      "time": 4.5,
+      "points": [
+        [1.0, -0.5],
+        [-1.0, -0.5]
+      ],
+      "ease": "linear"
+    },
+    {
+      "time": 5.25,
+      "points": [
+        [0.0, -1.2],
+        [0.0, 0.2]
+      ],
+      "ease": "smooth"
+    },
+    {
+      "time": 6.0,
+      "points": [
+        [-1.0, -0.5],
+        [1.0, -0.5]
+      ],
+      "ease": "smooth"
+    }
+  ]
+}
