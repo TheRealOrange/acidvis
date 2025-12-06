@@ -103,6 +103,7 @@ static int process_incremental_single_combination(
   for (size_t i = 0; i < poly_degree; i++) {
     H_work = polynomial_copy(H);
     if (!H_work) {
+      polynomial_free(original);
       polynomial_free(P);
       polynomial_free(H);
       fprintf(stderr, "failed to allocate H_work\n");
@@ -122,12 +123,14 @@ static int process_incremental_single_combination(
       // return 0 to indicate we want to fallback to full solve or
       // eigenvalue solve
 
+      polynomial_free(original);
       polynomial_free(H);
       polynomial_free(P);
       return 0;
     }
   }
 
+  polynomial_free(original);
   polynomial_free(H);
   polynomial_free(P);
 
